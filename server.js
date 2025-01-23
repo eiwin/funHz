@@ -5,7 +5,7 @@ const { characterCategories, detailedCharData } = require('./data/characters');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, 'public')));
 
 // 获取所有分类和汉字列表
 app.get('/api/categories', (req, res) => {
