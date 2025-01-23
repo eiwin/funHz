@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <title>趣学汉字</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>趣学汉字</h1>
+            <div class="category-tabs">
+                <button class="tab-btn active" onclick="switchCategory('all')">全部</button>
+                <button class="tab-btn" onclick="switchCategory('basic')">基础字</button>
+                <button class="tab-btn" onclick="switchCategory('nature')">自然</button>
+                <button class="tab-btn" onclick="switchCategory('numbers')">数字</button>
+                <button class="tab-btn" onclick="switchCategory('actions')">动作</button>
+                <button class="tab-btn" onclick="switchCategory('family')">家庭</button>
+            </div>
+            <div class="search-box">
+                <input type="text" id="charSearch" placeholder="搜索汉字...">
+                <div class="level-filter">
+                    <select id="levelSelect">
+                        <option value="all">所有难度</option>
+                        <option value="1">简单</option>
+                        <option value="2">进阶</option>
+                    </select>
+                </div>
+            </div>
+        </header>
+
+        <div class="character-list">
+            <div class="available-chars"></div>
+            <div class="pagination">
+                <button onclick="changePage('prev')">上一页</button>
+                <span id="pageInfo">第 1 页 / 共 1 页</span>
+                <button onclick="changePage('next')">下一页</button>
+            </div>
+        </div>
+
+        <main>
+            <section class="character-display">
+                <div class="main-character"></div>
+                <div class="english"></div>
+            </section>
+
+            <section class="words-section">
+                <h2>词语 / Words</h2>
+                <div class="word-items-grid"></div>
+            </section>
+
+            <section class="sentences-section">
+                <h2>例句 / Example Sentences</h2>
+            </section>
+
+            <section class="fun-facts">
+                <h2>趣味解释 / Fun Facts</h2>
+                <div class="fun-fact-item">
+                    <div class="chinese"></div>
+                    <div class="english"></div>
+                </div>
+            </section>
+        </main>
+    </div>
+    <script src="/script.js"></script>
+</body>
+</html> 
