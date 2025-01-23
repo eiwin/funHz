@@ -3,6 +3,8 @@ const path = require('path');
 const { characterCategories, detailedCharData } = require('./data/characters');
 
 const app = express();
+const PORT = process.env.PORT || 3000;
+
 app.use(express.static('public'));
 
 // 获取所有分类和汉字列表
@@ -31,7 +33,6 @@ app.get('/api/random-character', (req, res) => {
     res.json(detailedCharData[randomChar]);
 });
 
-const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 }); 
