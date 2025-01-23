@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>趣学汉字</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>趣学汉字</h1>
+            <div class="input-section">
+                <input type="text" id="characterInput" placeholder="请输入一个汉字" maxlength="1">
+            </div>
+        </header>
+
+        <main class="content">
+            <!-- 示例内容 -->
+            <section class="character-display">
+                <div class="main-character">
+                    <ruby>树<rt>shù</rt></ruby>
+                    <button class="play-sound" onclick="speak('树')">🔊</button>
+                </div>
+                <div class="english">tree</div>
+            </section>
+
+            <section class="words-section">
+                <h2>常用词语 / Common Words</h2>
+                <div class="word-items-grid">
+                    <div class="word-item">
+                        <div class="chinese">
+                            <ruby>大<rt>dà</rt></ruby><ruby>树<rt>shù</rt></ruby>
+                            <button class="play-sound" onclick="speak('大树')">🔊</button>
+                        </div>
+                        <div class="english">big tree</div>
+                    </div>
+                    <div class="word-item">
+                        <div class="chinese">
+                            <ruby>树<rt>shù</rt></ruby><ruby>叶<rt>yè</rt></ruby>
+                            <button class="play-sound" onclick="speak('树叶')">🔊</button>
+                        </div>
+                        <div class="english">leaf</div>
+                    </div>
+                    <div class="word-item">
+                        <div class="chinese">
+                            <ruby>果<rt>guǒ</rt></ruby><ruby>树<rt>shù</rt></ruby>
+                            <button class="play-sound" onclick="speak('果树')">🔊</button>
+                        </div>
+                        <div class="english">fruit tree</div>
+                    </div>
+                    <div class="word-item">
+                        <div class="chinese">
+                            <ruby>种<rt>zhòng</rt></ruby><ruby>树<rt>shù</rt></ruby>
+                            <button class="play-sound" onclick="speak('种树')">🔊</button>
+                        </div>
+                        <div class="english">plant trees</div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="sentences-section">
+                <h2>例句 / Example Sentences</h2>
+                <div class="sentence-item">
+                    <div class="chinese">
+                        <ruby>院<rt>yuàn</rt></ruby>
+                        <ruby>子<rt>zi</rt></ruby>
+                        <ruby>里<rt>lǐ</rt></ruby>
+                        <ruby>有<rt>yǒu</rt></ruby>
+                        <ruby>一<rt>yī</rt></ruby>
+                        <ruby>棵<rt>kē</rt></ruby>
+                        <ruby>大<rt>dà</rt></ruby>
+                        <ruby>树<rt>shù</rt></ruby>。
+                        <button class="play-sound" onclick="speak('院子里有一棵大树')">🔊</button>
+                    </div>
+                    <div class="english">There is a big tree in the yard.</div>
+                </div>
+                <div class="sentence-item">
+                    <div class="chinese">
+                        <ruby>春<rt>chūn</rt></ruby>
+                        <ruby>天<rt>tiān</rt></ruby>
+                        <ruby>树<rt>shù</rt></ruby>
+                        <ruby>叶<rt>yè</rt></ruby>
+                        <ruby>变<rt>biàn</rt></ruby>
+                        <ruby>绿<rt>lǜ</rt></ruby>
+                        <ruby>了<rt>le</rt></ruby>。
+                        <button class="play-sound" onclick="speak('春天树叶变绿了')">🔊</button>
+                    </div>
+                    <div class="english">The leaves turn green in spring.</div>
+                </div>
+            </section>
+
+            <section class="fun-facts">
+                <h2>趣味解释 / Fun Facts</h2>
+                <div class="fun-fact-item">
+                    <div class="chinese">
+                        <ruby>树<rt>shù</rt></ruby>是大自然送给我们的礼物！它们不仅能给我们新鲜空气，还能为小鸟提供家园。有的树能长得比五层楼还要高，有的树能活几百年。在不同的季节，树叶会变成不同的颜色，就像会变魔术一样神奇！
+                    </div>
+                    <div class="english">
+                        Trees are nature's gift to us! They not only give us fresh air but also provide homes for birds. Some trees can grow taller than a five-story building, and some can live for hundreds of years. In different seasons, the leaves change colors, like magic!
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        function speak(text) {
+            // 创建语音合成对象
+            const utterance = new SpeechSynthesisUtterance(text);
+            // 设置语言为中文
+            utterance.lang = 'zh-CN';
+            // 播放语音
+            window.speechSynthesis.speak(utterance);
+        }
+
+        // 页面加载时获取随机汉字
+        async function loadRandomCharacter() {
+            try {
+                const response = await fetch('/api/random-character');
+                const data = await response.json();
+                updateContent(data);
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
+        // 输入框处理函数
+        async function handleCharacterInput(event) {
+            const character = event.target.value;
+            if (character.length === 1) {
+                try {
+                    const response = await fetch(`/api/character/${character}`);
+                    const data = await response.json();
+                    updateContent(data);
+                } catch (error) {
+                    console.error('Error:', error);
+                }
+            }
+        }
+
+        function updateContent(data) {
+            // 更新主字符
+            document.querySelector('.main-character').innerHTML = 
+                `<ruby>${data.character}<rt>${data.pinyin}</rt></ruby>
+                 <button class="play-sound" onclick="speak('${data.character}')">🔊</button>`;
+            
+            // 更新英文翻译
+            document.querySelector('.character-display .english').textContent = data.english;
+
+            // 更新词语
+            const wordsGrid = document.querySelector('.word-items-grid');
+            wordsGrid.innerHTML = data.words.map(word => `
+                <div class="word-item">
+                    <div class="chinese">
+                        ${word.chinese.split('').map(char => 
+                            `<ruby>${char}<rt>${word.pinyin[char]}</rt></ruby>`
+                        ).join('')}
+                        <button class="play-sound" onclick="speak('${word.chinese}')">🔊</button>
+                    </div>
+                    <div class="english">${word.english}</div>
+                </div>
+            `).join('');
+
+            // 更新例句
+            const sentencesSection = document.querySelector('.sentences-section');
+            sentencesSection.innerHTML = data.sentences.map(sentence => `
+                <div class="sentence-item">
+                    <div class="chinese">
+                        ${sentence.chinese.split('').map(char => 
+                            `<ruby>${char}<rt>${sentence.pinyin[char]}</rt></ruby>`
+                        ).join('')}
+                        <button class="play-sound" onclick="speak('${sentence.chinese}')">🔊</button>
+                    </div>
+                    <div class="english">${sentence.english}</div>
+                </div>
+            `).join('');
+
+            // 更新趣味解释
+            document.querySelector('.fun-fact-item').innerHTML = `
+                <div class="chinese">${data.funFact.chinese}</div>
+                <div class="english">${data.funFact.english}</div>
+            `;
+        }
+
+        // 添加输入框事件监听
+        document.getElementById('characterInput').addEventListener('input', handleCharacterInput);
+
+        // 页面加载完成后执行
+        document.addEventListener('DOMContentLoaded', loadRandomCharacter);
+    </script>
+</body>
+</html> 
