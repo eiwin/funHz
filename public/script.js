@@ -8,16 +8,6 @@ let availableCharacters = [];
 let characterCategories = {};
 
 function speak(text) {
-    // 检查是否支持语音合成
-    if (!window.speechSynthesis) {
-        console.error('浏览器不支持语音合成');
-        showToast('抱歉，你的浏览器不支持语音功能 😢 (Sorry, your browser does not support speech)');
-        return;
-    }
-
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'zh-CN';
-    
     // 添加动画效果
     const soundButton = document.querySelector('.play-sound:hover') || document.querySelector('.main-character .play-sound');
     if (soundButton) {
@@ -25,10 +15,285 @@ function speak(text) {
         setTimeout(() => soundButton.classList.remove('wiggle'), 1000);
     }
     
-    // iOS Safari 需要用户交互才能播放声音
+    // 检测是否是Edge浏览器
+    const isEdge = /Edg/.test(navigator.userAgent);
+    
+    // 在iOS设备上直接显示备选方案对话框
+    if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+        console.log('iOS设备检测到，直接显示备选方案');
+        // 如果是Edge浏览器，尝试使用Edge TTS API
+        if (isEdge) {
+            console.log('Edge浏览器检测到，尝试使用Edge TTS API');
+            showToast('尝试使用Edge TTS... (Trying Edge TTS...)');
+        } else {
+            showTTSGuide(text);
+            return;
+        }
+    }
+    
+    // 显示加载提示
+    showToast('正在加载语音... (Loading audio...)');
+    
+    // 使用微软Edge浏览器TTS服务 - 这个服务通常没有CORS限制
+    const audio = new Audio();
+    
+    // 微软Edge TTS API
+    audio.src = `https://api.edge-speech-tts.cn/api/tts?text=${encodeURIComponent(text)}&lang=zh-CN&voice=zh-CN-XiaoxiaoNeural`;
+    
+    // 播放音频
+    audio.play()
+        .then(() => {
+            console.log('音频播放成功');
+            showToast('播放中... (Playing...)');
+            
+            // 播放完成后显示鼓励信息
+            audio.onended = () => {
+                if (Math.random() < 0.3) {
+                    showAchievement('🎯', '发音真棒！(Great pronunciation!)');
+                }
+            };
+        })
+        .catch(error => {
+            console.error('音频播放失败:', error);
+            console.log('尝试备用方案');
+            
+            // 如果微软API失败，尝试使用有道TTS API
+            tryYoudaoTTS(text);
+        });
+}
+
+// 使用有道TTS API作为备用方案
+function tryYoudaoTTS(text) {
+    showToast('尝试备用语音服务... (Trying backup service...)');
+    
+    // 创建音频元素
+    const audio = new Audio();
+    
+    // 有道翻译TTS API
+    audio.src = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(text)}&le=zh&type=1`;
+    
+    // 播放音频
+    audio.play()
+        .then(() => {
+            console.log('备用音频播放成功');
+            showToast('播放中... (Playing...)');
+            
+            // 播放完成后显示鼓励信息
+            audio.onended = () => {
+                if (Math.random() < 0.3) {
+                    showAchievement('🎯', '发音真棒！(Great pronunciation!)');
+                }
+            };
+        })
+        .catch(error => {
+            console.error('备用音频播放失败:', error);
+            
+            // 如果两个API都失败，尝试使用讯飞TTS API
+            tryXunfeiTTS(text);
+        });
+}
+
+// 使用讯飞TTS API作为第三备选方案
+function tryXunfeiTTS(text) {
+    showToast('尝试第三备用语音服务... (Trying third backup service...)');
+    
+    // 创建音频元素
+    const audio = new Audio();
+    
+    // 讯飞开放平台TTS API (通过代理)
+    audio.src = `https://fanyi.sogou.com/reventondc/synthesis?text=${encodeURIComponent(text)}&speed=1&lang=zh-CHS&from=translateweb&speaker=1`;
+    
+    // 播放音频
+    audio.play()
+        .then(() => {
+            console.log('第三备用音频播放成功');
+            showToast('播放中... (Playing...)');
+            
+            // 播放完成后显示鼓励信息
+            audio.onended = () => {
+                if (Math.random() < 0.3) {
+                    showAchievement('🎯', '发音真棒！(Great pronunciation!)');
+                }
+            };
+        })
+        .catch(error => {
+            console.error('第三备用音频播放失败:', error);
+            
+            // 如果所有API都失败，显示模态对话框
+            showTTSGuide(text);
+        });
+}
+
+// 显示TTS指南对话框（作为最后的备选方案）
+function showTTSGuide(text) {
+    // 创建一个模态对话框
+    const modal = document.createElement('div');
+    modal.style.position = 'fixed';
+    modal.style.top = '0';
+    modal.style.left = '0';
+    modal.style.width = '100%';
+    modal.style.height = '100%';
+    modal.style.backgroundColor = 'rgba(0,0,0,0.8)';
+    modal.style.zIndex = '9999';
+    modal.style.display = 'flex';
+    modal.style.flexDirection = 'column';
+    modal.style.justifyContent = 'center';
+    modal.style.alignItems = 'center';
+    modal.style.padding = '20px';
+    
+    // 创建内容容器
+    const container = document.createElement('div');
+    container.style.backgroundColor = 'white';
+    container.style.padding = '20px';
+    container.style.borderRadius = '10px';
+    container.style.maxWidth = '90%';
+    container.style.textAlign = 'center';
+    
+    // 添加标题
+    const title = document.createElement('h2');
+    title.textContent = '语音播放选项 (Audio Options)';
+    title.style.marginBottom = '20px';
+    container.appendChild(title);
+    
+    // 添加文本显示
+    const textDisplay = document.createElement('div');
+    textDisplay.style.fontSize = '2rem';
+    textDisplay.style.padding = '20px';
+    textDisplay.style.marginBottom = '20px';
+    textDisplay.style.backgroundColor = '#f8f8f8';
+    textDisplay.style.borderRadius = '5px';
+    textDisplay.textContent = text;
+    container.appendChild(textDisplay);
+    
+    // 添加说明
+    const instructions = document.createElement('div');
+    instructions.style.marginBottom = '20px';
+    instructions.style.textAlign = 'left';
+    instructions.innerHTML = `
+        <p>请选择以下翻译服务来听发音：</p>
+        <p style="color: #666;">Please select a translation service to hear pronunciation:</p>
+    `;
+    container.appendChild(instructions);
+    
+    // 添加按钮容器
+    const buttonContainer = document.createElement('div');
+    buttonContainer.style.display = 'flex';
+    buttonContainer.style.flexDirection = 'column';
+    buttonContainer.style.alignItems = 'center';
+    buttonContainer.style.gap = '15px';
+    buttonContainer.style.marginBottom = '20px';
+    
+    // 添加打开谷歌翻译按钮
+    const openGoogleButton = document.createElement('button');
+    openGoogleButton.textContent = '谷歌翻译 (Google Translate)';
+    openGoogleButton.style.padding = '15px 25px';
+    openGoogleButton.style.width = '90%';
+    openGoogleButton.style.backgroundColor = '#4285F4';
+    openGoogleButton.style.color = 'white';
+    openGoogleButton.style.border = 'none';
+    openGoogleButton.style.borderRadius = '5px';
+    openGoogleButton.style.cursor = 'pointer';
+    openGoogleButton.style.fontSize = '1.2rem';
+    openGoogleButton.onclick = () => {
+        window.open(`https://translate.google.com/?sl=zh-CN&tl=en&text=${encodeURIComponent(text)}&op=translate`, '_blank');
+    };
+    buttonContainer.appendChild(openGoogleButton);
+    
+    // 添加打开百度翻译按钮
+    const openBaiduButton = document.createElement('button');
+    openBaiduButton.textContent = '百度翻译 (Baidu Translate)';
+    openBaiduButton.style.padding = '15px 25px';
+    openBaiduButton.style.width = '90%';
+    openBaiduButton.style.backgroundColor = '#2932E1';
+    openBaiduButton.style.color = 'white';
+    openBaiduButton.style.border = 'none';
+    openBaiduButton.style.borderRadius = '5px';
+    openBaiduButton.style.cursor = 'pointer';
+    openBaiduButton.style.fontSize = '1.2rem';
+    openBaiduButton.onclick = () => {
+        window.open(`https://fanyi.baidu.com/#zh/en/${encodeURIComponent(text)}`, '_blank');
+    };
+    buttonContainer.appendChild(openBaiduButton);
+    
+    // 添加打开有道翻译按钮
+    const openYoudaoButton = document.createElement('button');
+    openYoudaoButton.textContent = '有道翻译 (Youdao Translate)';
+    openYoudaoButton.style.padding = '15px 25px';
+    openYoudaoButton.style.width = '90%';
+    openYoudaoButton.style.backgroundColor = '#2A9D8F';
+    openYoudaoButton.style.color = 'white';
+    openYoudaoButton.style.border = 'none';
+    openYoudaoButton.style.borderRadius = '5px';
+    openYoudaoButton.style.cursor = 'pointer';
+    openYoudaoButton.style.fontSize = '1.2rem';
+    openYoudaoButton.onclick = () => {
+        window.open(`https://www.youdao.com/w/eng/${encodeURIComponent(text)}/#keyfrom=dict2.index`, '_blank');
+    };
+    buttonContainer.appendChild(openYoudaoButton);
+    
+    // 添加Edge浏览器提示
+    const edgeTip = document.createElement('div');
+    edgeTip.style.backgroundColor = '#f0f8ff';
+    edgeTip.style.padding = '15px';
+    edgeTip.style.borderRadius = '5px';
+    edgeTip.style.marginBottom = '15px';
+    edgeTip.style.width = '90%';
+    edgeTip.style.textAlign = 'left';
+    edgeTip.style.fontSize = '0.9rem';
+    edgeTip.innerHTML = `
+        <p><strong>💡 提示 (Tip):</strong></p>
+        <p>想要更好的语音体验？尝试使用手机版Edge浏览器并启用"允许跨域请求"。</p>
+        <p style="color: #666;">For better voice experience, try using Edge browser on mobile and enable "Allow cross-origin requests".</p>
+    `;
+    buttonContainer.appendChild(edgeTip);
+    
+    // 添加关闭按钮
+    const closeButton = document.createElement('button');
+    closeButton.textContent = '关闭 (Close)';
+    closeButton.style.padding = '12px 20px';
+    closeButton.style.width = '50%';
+    closeButton.style.backgroundColor = '#f44336';
+    closeButton.style.color = 'white';
+    closeButton.style.border = 'none';
+    closeButton.style.borderRadius = '5px';
+    closeButton.style.cursor = 'pointer';
+    closeButton.style.fontSize = '1rem';
+    closeButton.onclick = () => document.body.removeChild(modal);
+    buttonContainer.appendChild(closeButton);
+    
+    container.appendChild(buttonContainer);
+    
+    // 将容器添加到模态框
+    modal.appendChild(container);
+    
+    // 将模态框添加到页面
+    document.body.appendChild(modal);
+    
+    // 60秒后自动关闭模态框（如果用户没有关闭）
+    setTimeout(() => {
+        if (document.body.contains(modal)) {
+            document.body.removeChild(modal);
+        }
+    }, 60000);
+}
+
+// 使用Web Speech API播放（非iOS设备）
+function playWithWebSpeechAPI(text) {
+    if (!window.speechSynthesis) {
+        console.error('浏览器不支持语音合成');
+        showToast('抱歉，你的浏览器不支持语音功能 😢 (Sorry, your browser does not support speech)');
+        return;
+    }
+    
     try {
-        // 在 iOS 上需要先恢复/重新开始语音合成
-        speechSynthesis.cancel();
+        // 在播放前取消所有正在进行的语音
+        window.speechSynthesis.cancel();
+        
+        // 创建新的语音合成实例
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'zh-CN';
+        utterance.rate = 0.8;
+        utterance.volume = 1.0;
         
         // 添加错误处理
         utterance.onerror = (event) => {
@@ -51,6 +316,281 @@ function speak(text) {
         console.error('语音播放失败:', error);
         showToast('语音播放失败 😢 (Speech playback failed)');
     }
+}
+
+// 回退到百度翻译方案（最后的备选方案）
+function fallbackToBaiduTranslate(text) {
+    // 使用百度翻译朗读功能（通过重定向）
+    const baiduUrl = `https://fanyi.baidu.com/#zh/en/${encodeURIComponent(text)}`;
+    
+    // 显示提示
+    showToast('正在打开百度翻译... (Opening Baidu Translate...)');
+    
+    // 打开新窗口
+    window.open(baiduUrl, '_blank');
+    
+    // 显示使用说明
+    setTimeout(() => {
+        showToast('点击百度翻译页面上的发音图标 (Click the pronunciation icon)');
+    }, 2000);
+}
+
+// 使用在线TTS服务播放声音
+function playOnlineTTS(text) {
+    // 显示加载提示
+    showToast('正在加载语音... (Loading audio...)');
+    
+    // 创建音频元素
+    const audio = new Audio();
+    
+    // 使用免费的在线TTS API
+    // 注意：这里使用的是公共API，可能有使用限制，实际应用中可能需要注册获取API密钥
+    const apiUrl = `https://api.voicerss.org/?key=e0d7d5d0b2b24ed08f2e5d5f7c71b1a1&hl=zh-cn&src=${encodeURIComponent(text)}`;
+    
+    // 设置音频源
+    audio.src = apiUrl;
+    
+    // 音频加载事件
+    audio.onloadeddata = () => {
+        console.log('音频加载完成');
+        showToast('语音已准备好 (Audio ready)');
+    };
+    
+    // 播放错误处理
+    audio.onerror = (error) => {
+        console.error('音频播放错误:', error);
+        showToast('语音加载失败，请重试 (Audio loading failed, please try again)');
+        
+        // 尝试使用备用API
+        tryBackupTTS(text);
+    };
+    
+    // 播放完成处理
+    audio.onended = () => {
+        console.log('音频播放完成');
+        // 随机显示鼓励信息
+        if (Math.random() < 0.3) {
+            showAchievement('🎯', '发音真棒！(Great pronunciation!)');
+        }
+    };
+    
+    // 播放音频
+    audio.play().catch(error => {
+        console.error('播放失败:', error);
+        
+        // 尝试使用备用API
+        tryBackupTTS(text);
+    });
+}
+
+// 尝试使用备用TTS API
+function tryBackupTTS(text) {
+    console.log('尝试使用备用TTS API');
+    showToast('正在尝试备用语音服务... (Trying backup service...)');
+    
+    // 创建音频元素
+    const audio = new Audio();
+    
+    // 使用备用的在线TTS API
+    const backupApiUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=zh-CN&client=tw-ob`;
+    
+    // 设置音频源
+    audio.src = backupApiUrl;
+    
+    // 播放错误处理
+    audio.onerror = (error) => {
+        console.error('备用API音频播放错误:', error);
+        showToast('语音服务暂时不可用 (Voice service temporarily unavailable)');
+        
+        // 显示系统朗读指南作为最后的备选方案
+        showSystemReaderGuide(text);
+    };
+    
+    // 播放完成处理
+    audio.onended = () => {
+        console.log('备用API音频播放完成');
+        // 随机显示鼓励信息
+        if (Math.random() < 0.3) {
+            showAchievement('🎯', '发音真棒！(Great pronunciation!)');
+        }
+    };
+    
+    // 播放音频
+    audio.play().catch(error => {
+        console.error('备用API播放失败:', error);
+        showToast('语音服务暂时不可用 (Voice service temporarily unavailable)');
+        
+        // 显示系统朗读指南作为最后的备选方案
+        showSystemReaderGuide(text);
+    });
+}
+
+// 显示系统朗读指南（作为最后的备选方案）
+function showSystemReaderGuide(text) {
+    // 显示提示
+    showToast('请使用系统朗读功能 (Please use system reader)');
+    
+    // 创建一个模态对话框
+    const modal = document.createElement('div');
+    modal.style.position = 'fixed';
+    modal.style.top = '0';
+    modal.style.left = '0';
+    modal.style.width = '100%';
+    modal.style.height = '100%';
+    modal.style.backgroundColor = 'rgba(0,0,0,0.8)';
+    modal.style.zIndex = '9999';
+    modal.style.display = 'flex';
+    modal.style.flexDirection = 'column';
+    modal.style.justifyContent = 'center';
+    modal.style.alignItems = 'center';
+    modal.style.padding = '20px';
+    
+    // 创建内容容器
+    const container = document.createElement('div');
+    container.style.backgroundColor = 'white';
+    container.style.padding = '20px';
+    container.style.borderRadius = '10px';
+    container.style.maxWidth = '90%';
+    container.style.textAlign = 'center';
+    
+    // 添加标题
+    const title = document.createElement('h2');
+    title.textContent = '如何听发音 (How to hear pronunciation)';
+    title.style.marginBottom = '20px';
+    container.appendChild(title);
+    
+    // 添加文本显示
+    const textDisplay = document.createElement('div');
+    textDisplay.style.fontSize = '2rem';
+    textDisplay.style.padding = '20px';
+    textDisplay.style.marginBottom = '20px';
+    textDisplay.style.backgroundColor = '#f8f8f8';
+    textDisplay.style.borderRadius = '5px';
+    textDisplay.textContent = text;
+    container.appendChild(textDisplay);
+    
+    // 添加说明
+    const instructions = document.createElement('ol');
+    instructions.style.textAlign = 'left';
+    instructions.style.marginBottom = '20px';
+    
+    const steps = [
+        '长按上方文字 (Long press the text above)',
+        '在弹出菜单中选择"朗读所选内容" (Select "Speak" from the popup menu)',
+        '系统将朗读选中的文字 (The system will read the selected text)'
+    ];
+    
+    steps.forEach(step => {
+        const li = document.createElement('li');
+        li.textContent = step;
+        li.style.marginBottom = '10px';
+        instructions.appendChild(li);
+    });
+    
+    container.appendChild(instructions);
+    
+    // 添加关闭按钮
+    const closeButton = document.createElement('button');
+    closeButton.textContent = '关闭 (Close)';
+    closeButton.style.padding = '10px 20px';
+    closeButton.style.backgroundColor = '#f44336';
+    closeButton.style.color = 'white';
+    closeButton.style.border = 'none';
+    closeButton.style.borderRadius = '5px';
+    closeButton.style.cursor = 'pointer';
+    closeButton.onclick = () => document.body.removeChild(modal);
+    container.appendChild(closeButton);
+    
+    // 将容器添加到模态框
+    modal.appendChild(container);
+    
+    // 将模态框添加到页面
+    document.body.appendChild(modal);
+}
+
+// 使用音频API播放预录制的声音（适用于iOS）
+function playAudioFile(text) {
+    console.log('使用音频API播放:', text);
+    
+    // 创建音频元素
+    const audio = new Audio();
+    
+    // 根据文本选择合适的音频文件
+    let audioFile = '';
+    
+    // 单个汉字的处理
+    if (text.length === 1) {
+        // 使用汉字的Unicode编码作为文件名
+        const charCode = text.charCodeAt(0).toString(16);
+        audioFile = `/audio/${charCode}.mp3`;
+    } else {
+        // 对于短语，使用MD5哈希作为文件名（简化版）
+        let hash = 0;
+        for (let i = 0; i < text.length; i++) {
+            hash = ((hash << 5) - hash) + text.charCodeAt(i);
+            hash = hash & hash; // 转换为32位整数
+        }
+        audioFile = `/audio/phrase_${Math.abs(hash)}.mp3`;
+    }
+    
+    // 如果没有预录制的音频，使用文本到语音API生成
+    if (!audioExists(audioFile)) {
+        generateAndPlayTTS(text);
+        return;
+    }
+    
+    // 设置音频源
+    audio.src = audioFile;
+    
+    // 播放音频
+    audio.play().then(() => {
+        console.log('音频播放成功');
+        // 随机显示鼓励信息
+        if (Math.random() < 0.3) {
+            showAchievement('🎯', '发音真棒！(Great pronunciation!)');
+        }
+    }).catch(error => {
+        console.error('音频播放失败:', error);
+        // 如果播放失败，尝试使用TTS
+        generateAndPlayTTS(text);
+    });
+}
+
+// 检查音频文件是否存在（简化版，实际应用中需要服务器端支持）
+function audioExists(audioFile) {
+    // 这里简化处理，假设所有基本汉字都有预录制音频
+    // 实际应用中应该通过AJAX请求或其他方式检查文件是否存在
+    const basicChars = ['我', '你', '他', '她', '的', '是', '日', '月', '水', '火', '山', '树', 
+                        '一', '二', '三', '四', '五', '看', '说', '走', '来', '去', '爸', '妈', '家', '哥', '姐'];
+    
+    // 如果是单个基本汉字，假设有预录制音频
+    if (audioFile.includes('/audio/') && basicChars.includes(String.fromCharCode(parseInt(audioFile.split('/').pop().split('.')[0], 16)))) {
+        return true;
+    }
+    
+    // 否则假设没有预录制音频
+    return false;
+}
+
+// 使用替代方法生成和播放TTS（适用于iOS）
+function generateAndPlayTTS(text) {
+    console.log('使用替代TTS方法播放:', text);
+    
+    // 创建一个隐藏的iframe，加载包含TTS功能的页面
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    iframe.src = `/tts.html?text=${encodeURIComponent(text)}`;
+    
+    // 添加到文档中
+    document.body.appendChild(iframe);
+    
+    // 5秒后移除iframe
+    setTimeout(() => {
+        document.body.removeChild(iframe);
+    }, 5000);
+    
+    // 显示提示
+    showToast('正在播放语音... (Playing audio...)');
 }
 
 // 显示成就/提示
@@ -563,7 +1103,31 @@ document.addEventListener('DOMContentLoaded', () => {
     if (characterInput) {
         characterInput.addEventListener('input', handleCharacterInput);
     }
+    
+    // iOS设备提示
+    if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+        console.log('iOS设备检测到，显示提示');
+        
+        // 显示提示，引导用户使用
+        showToast('点击声音按钮将显示翻译选项 (Tap sound button to show translation options)');
+    }
 });
+
+// 预加载常用汉字的音频
+function preloadCommonAudio() {
+    const commonChars = ['我', '你', '他', '她', '的', '是'];
+    
+    commonChars.forEach(char => {
+        const audio = new Audio();
+        const charCode = char.charCodeAt(0).toString(16);
+        audio.src = `/audio/${charCode}.mp3`;
+        
+        // 只预加载，不播放
+        audio.preload = 'auto';
+        
+        console.log(`预加载音频: ${char}`);
+    });
+}
 
 // 添加CSS样式
 function addStyles() {
