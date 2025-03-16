@@ -1,74 +1,183 @@
+/* Kid-friendly theme variables */
+:root {
+    --primary: #FF6B6B;
+    --secondary: #4ECDC4;
+    --accent: #FFD166;
+    --background: #F7FFF7;
+    --text: #2D3047;
+    --light-text: #6D6875;
+    --success: #06D6A0;
+    --border-radius: 15px;
+    --box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+}
+
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
 }
 
+@keyframes float {
+    0% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+    100% { transform: translateY(0px); }
+}
+
+@keyframes pop {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+@keyframes wiggle {
+    0% { transform: rotate(0deg); }
+    25% { transform: rotate(5deg); }
+    50% { transform: rotate(0deg); }
+    75% { transform: rotate(-5deg); }
+    100% { transform: rotate(0deg); }
+}
+
 body {
     font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
-    background-color: #f5f6fa;
-    color: #2c3e50;
+    background-color: var(--background);
+    color: var(--text);
     line-height: 1.6;
     padding: 20px;
+    background-image: url('https://www.transparenttextures.com/patterns/cubes.png');
 }
 
 .container {
     max-width: 800px;
     margin: 0 auto;
     background: white;
-    border-radius: 15px;
+    border-radius: var(--border-radius);
     padding: 30px;
-    box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+    box-shadow: var(--box-shadow);
+    position: relative;
+    overflow: hidden;
+}
+
+.container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 10px;
+    background: linear-gradient(90deg, var(--primary), var(--secondary), var(--accent), var(--success));
 }
 
 header {
     text-align: center;
     margin-bottom: 40px;
+    position: relative;
 }
 
 h1 {
-    color: #3498db;
+    color: var(--primary);
     margin-bottom: 20px;
-    font-size: 2.5em;
+    font-size: 2.8em;
+    text-shadow: 2px 2px 0 var(--accent);
+    letter-spacing: 2px;
+    position: relative;
+    display: inline-block;
+}
+
+h1::after {
+    content: '🎮';
+    position: absolute;
+    right: -40px;
+    top: 0;
+    font-size: 0.7em;
+    animation: wiggle 3s infinite;
 }
 
 /* 主字符显示区域 */
 .character-display {
     text-align: center;
     margin: 40px 0;
-    padding: 20px;
-    background: #f8f9fa;
-    border-radius: 12px;
+    padding: 30px;
+    background: linear-gradient(135deg, #fff, #f0f7ff);
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.character-display:hover {
+    transform: translateY(-5px);
+}
+
+.character-display::before {
+    content: '✨';
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    font-size: 24px;
+    opacity: 0.5;
+}
+
+.character-display::after {
+    content: '✨';
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    font-size: 24px;
+    opacity: 0.5;
 }
 
 .main-character {
-    font-size: 100px;
+    font-size: 120px;
     margin-bottom: 20px;
     line-height: 1.2;
+    color: var(--primary);
+    text-shadow: 3px 3px 0 rgba(0,0,0,0.1);
+    animation: float 6s ease-in-out infinite;
+    position: relative;
 }
 
 .main-character ruby {
-    font-size: 100px;
+    font-size: 120px;
     margin: 0 10px;
+    position: relative;
 }
 
 .main-character rt {
-    font-size: 28px;
+    font-size: 32px;
     margin-bottom: 0.5em;
-    color: #e74c3c;
+    color: var(--secondary);
+    font-weight: bold;
+}
+
+.english {
+    font-size: 24px;
+    color: var(--light-text);
+    font-weight: bold;
+    background: rgba(255,255,255,0.7);
+    padding: 5px 15px;
+    border-radius: 20px;
+    display: inline-block;
 }
 
 /* 词语和例句部分 */
 section {
-    margin-bottom: 30px;
+    margin-bottom: 40px;
+    position: relative;
 }
 
 h2 {
-    color: #3498db;
-    margin-bottom: 15px;
-    font-size: 1.5em;
-    border-bottom: 2px solid #ecf0f1;
-    padding-bottom: 5px;
+    color: var(--secondary);
+    margin-bottom: 20px;
+    font-size: 1.8em;
+    border-bottom: 3px dashed var(--accent);
+    padding-bottom: 10px;
+    display: inline-block;
+}
+
+h2::before {
+    content: '🎯';
+    margin-right: 10px;
 }
 
 /* 词语网格布局 */
@@ -80,103 +189,140 @@ h2 {
 }
 
 .word-item {
-    background: #f5f5f5;
-    padding: 15px;
-    border-radius: 8px;
+    background: #f9f9f9;
+    padding: 20px;
+    border-radius: var(--border-radius);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+    position: relative;
+}
+
+.word-item:hover {
+    transform: translateY(-5px);
+    border-color: var(--accent);
+    background: white;
 }
 
 .word-item .chinese {
-    font-size: 1.5rem;
-    margin-bottom: 8px;
+    font-size: 1.8rem;
+    margin-bottom: 10px;
+    color: var(--text);
 }
 
 .word-item .english {
-    font-size: 1.2rem;
-    color: #666;
+    font-size: 1.3rem;
+    color: var(--light-text);
+    background: none;
+    padding: 0;
 }
 
 /* 例句部分 */
 .sentence-item {
-    background: #f0f7ff;
-    padding: 15px;
-    margin: 15px 0;
-    border-radius: 8px;
+    background: linear-gradient(135deg, #fff, #f0fff5);
+    padding: 20px;
+    border-radius: var(--border-radius);
+    margin-bottom: 15px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+    transition: all 0.3s ease;
+    border-left: 5px solid var(--success);
+}
+
+.sentence-item:hover {
+    transform: translateX(5px);
 }
 
 .sentence-item .chinese {
     font-size: 1.5rem;
     margin-bottom: 10px;
+    line-height: 1.8;
 }
 
 .sentence-item .english {
     font-size: 1.2rem;
-    color: #444;
+    color: var(--light-text);
+    background: none;
+    padding: 0;
 }
 
-/* 趣味解释部分 */
 .fun-facts {
-    background: #ebf5fb;
-    padding: 20px;
-    border-radius: 8px;
+    background: linear-gradient(135deg, #fff, #fff5f0);
+    padding: 25px;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    position: relative;
+}
+
+.fun-facts::before {
+    content: '💡';
+    position: absolute;
+    top: -15px;
+    left: 20px;
+    font-size: 30px;
+    background: white;
+    border-radius: 50%;
+    padding: 5px;
 }
 
 .fun-fact-item {
-    background: #fff3e0;
-    padding: 20px;
-    margin: 20px 0;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    position: relative;
+    padding: 10px;
 }
 
 .fun-fact-item .chinese {
-    font-size: 1.4rem;
+    font-size: 1.3rem;
     margin-bottom: 15px;
-    line-height: 1.6;
+    line-height: 1.8;
+    color: var(--text);
 }
 
 .fun-fact-item .english {
-    font-size: 1.2rem;
-    color: #555;
-    line-height: 1.5;
+    font-size: 1.1rem;
+    color: var(--light-text);
+    line-height: 1.6;
+    background: none;
+    padding: 0;
 }
 
-/* 播放声音按钮 */
 .play-sound {
+    background: var(--accent);
     border: none;
-    background: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
     cursor: pointer;
-    font-size: 1.2em;
-    padding: 5px;
-    margin-left: 10px;
-    vertical-align: middle;
-    opacity: 0.7;
-    transition: opacity 0.3s;
-    /* 确保最小触摸区域 */
-    min-width: 44px;
-    min-height: 44px;
+    font-size: 20px;
+    color: white;
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    margin-left: 10px;
+    vertical-align: middle;
+    transition: all 0.2s ease;
+    box-shadow: 0 3px 5px rgba(0,0,0,0.1);
 }
 
 .play-sound:hover {
-    opacity: 1;
+    background: var(--primary);
+    transform: scale(1.1);
+    animation: wiggle 1s infinite;
 }
 
 .main-character .play-sound {
-    font-size: 1.5em;
+    width: 60px;
+    height: 60px;
+    font-size: 30px;
 }
 
-/* 调整词语和例句的间距 */
 .word-item .chinese, 
 .sentence-item .chinese {
-    line-height: 2.8;
-    letter-spacing: 0.1em;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
 }
 
-/* 调整例句的布局 */
 .sentence-item .chinese ruby {
-    margin: 0 1px;
+    margin-right: 2px;
 }
 
 /* 响应式设计 */
@@ -184,213 +330,453 @@ h2 {
     body {
         padding: 10px;
     }
-
+    
     .container {
-        padding: 15px;
+        padding: 20px;
     }
-
+    
     .word-items-grid {
         grid-template-columns: 1fr;
     }
-
+    
     .main-character {
-        font-size: 60px;
+        font-size: 80px;
     }
-
+    
     .main-character ruby {
-        font-size: 60px;
+        font-size: 80px;
     }
-
+    
     .main-character rt {
-        font-size: 18px;
+        font-size: 24px;
     }
 }
 
-/* 添加汉字选择栏样式 */
+/* 汉字列表样式 */
 .character-list {
-    margin: 20px 0;
-    padding: 10px;
-    background: #f8f9fa;
-    border-radius: 10px;
+    margin: 30px 0;
+    padding: 20px;
+    background: white;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
 }
 
 .available-chars {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+    display: flex;
+    flex-wrap: wrap;
     gap: 10px;
+    justify-content: center;
     margin-bottom: 20px;
 }
 
 .char-btn {
-    width: 100%;
-    aspect-ratio: 1;
+    width: 50px;
+    height: 50px;
+    font-size: 24px;
+    background: white;
+    border: 2px solid var(--secondary);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.2em;
-    background: #f8f9fa;
-    border: 1px solid #dee2e6;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.3s ease;
 }
 
 .char-btn:hover {
-    background: #e9ecef;
-    transform: translateY(-2px);
+    background: var(--secondary);
+    color: white;
+    transform: translateY(-3px);
 }
 
 .char-btn.active {
-    background: #3498db;
+    background: var(--primary);
     color: white;
-    border-color: #3498db;
+    border-color: var(--primary);
+    transform: scale(1.1);
 }
 
-/* 分类标签样式 */
 .category-tabs {
-    margin: 20px 0;
     display: flex;
-    justify-content: center;
-    gap: 10px;
     flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 20px;
 }
 
 .tab-btn {
-    padding: 8px 16px;
-    border: none;
-    background: #f0f0f0;
+    padding: 8px 15px;
+    background: white;
+    border: 2px solid var(--secondary);
     border-radius: 20px;
     cursor: pointer;
-    transition: all 0.3s;
+    transition: all 0.2s ease;
+    font-weight: bold;
 }
 
 .tab-btn.active {
-    background: #3498db;
+    background: var(--secondary);
     color: white;
 }
 
-/* 搜索框样式 */
 .search-box {
-    margin: 15px 0;
-    display: flex;
-    gap: 10px;
-    justify-content: center;
-}
-
-.search-box input {
-    width: 200px;
-    padding: 8px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-}
-
-.level-filter select {
-    padding: 8px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-}
-
-/* 分页控制样式 */
-.pagination {
-    margin-top: 15px;
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: 15px;
+    gap: 10px;
+    margin: 20px 0;
+}
+
+.search-box input {
+    padding: 10px 15px;
+    border: 2px solid var(--secondary);
+    border-radius: 20px;
+    font-size: 16px;
+    width: 200px;
+}
+
+.level-filter select {
+    padding: 10px 15px;
+    border: 2px solid var(--accent);
+    border-radius: 20px;
+    font-size: 16px;
+    background: white;
+}
+
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    margin-top: 20px;
 }
 
 .pagination button {
-    padding: 5px 10px;
-    border: 1px solid #3498db;
-    background: white;
-    border-radius: 4px;
+    padding: 8px 15px;
+    background: var(--secondary);
+    color: white;
+    border: none;
+    border-radius: 20px;
     cursor: pointer;
+    transition: all 0.2s ease;
 }
 
 .pagination button:hover {
-    background: #3498db;
-    color: white;
+    background: var(--primary);
+    transform: translateY(-3px);
 }
 
-/* 拼音标注 */
+/* 拼音样式 */
 ruby {
-    font-size: 1.4rem;
+    display: inline-flex;
+    flex-direction: column;
 }
 
 rt {
-    font-size: 0.9rem;
-    color: #666;
+    font-size: 0.6em;
+    text-align: center;
+    color: var(--secondary);
 }
 
-/* 移动端布局调整 */
+/* 移动端适配 */
 @media screen and (max-width: 768px) {
     .container {
         padding: 15px;
         margin: 10px;
     }
-
-    /* 头部导航适配 */
+    
     .category-tabs {
-        flex-wrap: wrap;
-        gap: 8px;
+        flex-direction: row;
+        overflow-x: auto;
+        padding-bottom: 10px;
     }
-
+    
     .tab-btn {
-        padding: 6px 12px;
         font-size: 14px;
+        padding: 6px 12px;
     }
-
-    /* 搜索框适配 */
+    
     .search-box {
         flex-direction: column;
-        gap: 10px;
     }
-
-    /* 汉字网格适配 */
+    
     .available-chars {
-        grid-template-columns: repeat(auto-fill, minmax(35px, 1fr));
-        gap: 6px;
+        gap: 8px;
     }
-
-    /* 词语网格适配 */
+    
     .word-items-grid {
-        grid-template-columns: 1fr;  /* 移动端单列显示 */
+        grid-template-columns: 1fr;
     }
-
-    /* 主字符显示适配 */
+    
     .main-character {
-        font-size: 60px;  /* 移动端稍微缩小字号 */
+        font-size: 70px;
     }
-
-    /* 例句显示适配 */
+    
     .sentence-item {
-        padding: 10px;
+        padding: 15px;
     }
-
-    /* 移动端播放按钮适配 */
+    
     .play-sound {
-        font-size: 1.4em;
-        padding: 8px;
-        background: rgba(52, 152, 219, 0.1);
-        border-radius: 50%;
-        margin: 5px;
+        width: 36px;
+        height: 36px;
+        font-size: 18px;
     }
-
+    
     .main-character .play-sound {
-        font-size: 1.8em;
-        padding: 10px;
-        margin-top: 10px;
-        display: block;
-        margin-left: auto;
-        margin-right: auto;
+        width: 50px;
+        height: 50px;
+        font-size: 24px;
     }
-
-    /* 确保词语和例句中的播放按钮位置合适 */
+    
     .word-item .chinese,
     .sentence-item .chinese {
-        display: flex;
-        align-items: center;
-        flex-wrap: wrap;
-        gap: 5px;
+        font-size: 1.3rem;
+    }
+}
+
+/* 动画元素 */
+.mascot {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 80px;
+    height: 80px;
+    background: var(--primary);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 40px;
+    box-shadow: var(--box-shadow);
+    cursor: pointer;
+    z-index: 100;
+    animation: float 4s ease-in-out infinite;
+}
+
+.achievement {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: white;
+    padding: 15px;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transform: translateX(120%);
+    transition: transform 0.5s ease;
+}
+
+.achievement.show {
+    transform: translateX(0);
+}
+
+.achievement-icon {
+    font-size: 30px;
+}
+
+.achievement-text {
+    font-size: 14px;
+    font-weight: bold;
+}
+
+/* 进度条 */
+.progress-container {
+    width: 100%;
+    height: 10px;
+    background: #f0f0f0;
+    border-radius: 5px;
+    margin: 20px 0;
+    overflow: hidden;
+}
+
+.progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--secondary), var(--success));
+    width: 0;
+    transition: width 0.5s ease;
+}
+
+/* 奖励星星 */
+.stars {
+    display: flex;
+    justify-content: center;
+    gap: 5px;
+    margin: 10px 0;
+}
+
+.star {
+    font-size: 24px;
+    color: #ddd;
+}
+
+.star.filled {
+    color: var(--accent);
+}
+
+/* 游戏化元素 */
+.game-controls {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin: 20px 0;
+}
+
+.game-btn {
+    padding: 10px 20px;
+    background: var(--secondary);
+    color: white;
+    border: none;
+    border-radius: 30px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 0 rgba(0,0,0,0.1);
+}
+
+.game-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 7px 0 rgba(0,0,0,0.1);
+}
+
+.game-btn:active {
+    transform: translateY(1px);
+    box-shadow: 0 2px 0 rgba(0,0,0,0.1);
+}
+
+/* 输入框样式 */
+.input-section {
+    margin: 20px 0;
+}
+
+.input-section input {
+    padding: 15px 20px;
+    font-size: 20px;
+    border: 3px solid var(--secondary);
+    border-radius: 30px;
+    width: 200px;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.input-section input:focus {
+    outline: none;
+    border-color: var(--primary);
+    width: 250px;
+    box-shadow: 0 0 15px rgba(0,0,0,0.1);
+}
+
+/* 动画效果 */
+@keyframes bounce {
+    0%, 20%, 50%, 80%, 100% {transform: translateY(0);}
+    40% {transform: translateY(-20px);}
+    60% {transform: translateY(-10px);}
+}
+
+.bounce {
+    animation: bounce 1s;
+}
+
+@keyframes fadeIn {
+    from {opacity: 0;}
+    to {opacity: 1;}
+}
+
+.fade-in {
+    animation: fadeIn 0.5s;
+}
+
+/* 卡通风格边框 */
+.cartoon-border {
+    border: 3px solid var(--primary);
+    border-radius: var(--border-radius);
+    position: relative;
+}
+
+.cartoon-border::before {
+    content: '';
+    position: absolute;
+    top: -10px;
+    left: 20px;
+    width: 20px;
+    height: 20px;
+    background: white;
+    border: 3px solid var(--primary);
+    border-radius: 50%;
+    z-index: 1;
+}
+
+.cartoon-border::after {
+    content: '';
+    position: absolute;
+    bottom: -10px;
+    right: 20px;
+    width: 20px;
+    height: 20px;
+    background: white;
+    border: 3px solid var(--primary);
+    border-radius: 50%;
+    z-index: 1;
+}
+
+/* English text styles */
+.en-text {
+    font-size: 0.8em;
+    color: var(--light-text);
+    font-style: italic;
+    display: inline-block;
+    margin-left: 4px;
+}
+
+.tab-btn .en-text {
+    display: block;
+    font-size: 0.7em;
+    margin-top: 2px;
+}
+
+.game-btn .en-text {
+    font-size: 0.7em;
+    display: block;
+    margin-top: 2px;
+}
+
+.game-instruction .en-text {
+    display: block;
+    font-size: 0.8em;
+    margin-top: 5px;
+    color: var(--secondary);
+}
+
+#pageInfo {
+    position: relative;
+}
+
+#pageInfo:after {
+    content: "Page / Total";
+    display: block;
+    font-size: 0.7em;
+    color: var(--light-text);
+    font-style: italic;
+}
+
+footer {
+    text-align: center;
+    margin-top: 30px;
+    padding: 20px 0;
+    border-top: 1px dashed var(--accent);
+    color: var(--light-text);
+    font-size: 0.9em;
+}
+
+/* Responsive adjustments for English text */
+@media screen and (max-width: 768px) {
+    .en-text {
+        font-size: 0.7em;
+    }
+    
+    .tab-btn .en-text {
+        font-size: 0.6em;
     }
 } 
