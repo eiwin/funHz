@@ -1204,9 +1204,9 @@ const detailedCharData = {
                 english: "last year"
             },
             {
-                chinese: "去世",
-                pinyin: {"去": "qù", "世": "shì"},
-                english: "pass away"
+                chinese: "出去",
+                pinyin: {"出": "chū", "去": "qù"},
+                english: "go out"
             },
             {
                 chinese: "去掉",
