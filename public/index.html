@@ -98,6 +98,10 @@
                 <h2>写字练习 / Writing Practice</h2>
                 <div class="writing-container">
                     <canvas id="writingCanvas" width="300" height="300"></canvas>
+                    <div class="score-display">
+                        <div class="score-label">分 / Score</div>
+                        <div class="score-value">0</div>
+                    </div>
                     <div class="writing-controls">
                         <button class="game-btn" onclick="clearCanvas()">清除 <span class="en-text">Clear</span></button>
                         <button class="game-btn" onclick="checkWriting()">检查 <span class="en-text">Check</span></button>
@@ -200,13 +204,18 @@
                 ctx.stroke();
             }
             
-            // 添加当前汉字水印
-            const currentChar = document.querySelector('.main-character ruby').textContent.trim();
-            ctx.font = '150px sans-serif';
-            ctx.fillStyle = 'rgba(200, 200, 200, 0.2)';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(currentChar, canvas.width/2, canvas.height/2);
+            // 添加当前汉字水印 - 只显示汉字，不显示拼音
+            const mainCharElement = document.querySelector('.main-character ruby');
+            if (mainCharElement) {
+                // 只获取汉字，不包括拼音
+                const currentChar = mainCharElement.textContent.trim().charAt(0);
+                
+                ctx.font = '150px sans-serif';
+                ctx.fillStyle = 'rgba(200, 200, 200, 0.2)';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(currentChar, canvas.width/2, canvas.height/2);
+            }
             
             // 设置绘图状态
             let isDrawing = false;
@@ -280,22 +289,117 @@
         }
         
         function checkWriting() {
-            // 简单的写字检查
-            showAchievement('👍', '写得真棒！继续练习！ (Great writing! Keep practicing!)');
+            const canvas = document.getElementById('writingCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            // 获取画布数据
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+            
+            // 计算像素覆盖率
+            let pixelCount = 0;
+            for (let i = 0; i < data.length; i += 4) {
+                // 检查非白色像素 (RGB值不全为255或接近255)
+                if (data[i] < 240 || data[i+1] < 240 || data[i+2] < 240) {
+                    pixelCount++;
+                }
+            }
+            
+            // 计算覆盖率百分比
+            const totalPixels = canvas.width * canvas.height;
+            const coverage = pixelCount / totalPixels;
+            
+            // 计算分数 (0-100)
+            // 理想覆盖率在5%-15%之间，过多或过少都会扣分
+            let score = 0;
+            if (coverage < 0.01) {
+                // 几乎没写
+                score = 0;
+            } else if (coverage > 0.30) {
+                // 写太多了
+                score = Math.max(0, 100 - (coverage - 0.30) * 1000);
+            } else {
+                // 正常范围内，根据覆盖率给分
+                // 最佳覆盖率约为0.10 (10%)
+                const idealCoverage = 0.10;
+                const deviation = Math.abs(coverage - idealCoverage);
+                score = Math.max(0, 100 - deviation * 500);
+            }
+            
+            // 四舍五入到整数
+            score = Math.round(score);
+            
+            // 显示分数
+            const scoreElement = document.querySelector('.score-value') || document.createElement('div');
+            if (!document.querySelector('.score-value')) {
+                scoreElement.className = 'score-value';
+                document.querySelector('.writing-container').appendChild(scoreElement);
+            }
+            scoreElement.textContent = score;
+            scoreElement.classList.add('score-animation');
+            
+            // 根据分数显示不同的反馈
+            let feedbackMessage = '';
+            let icon = '';
+            
+            if (score >= 90) {
+                feedbackMessage = '写得太棒了！完美！ (Excellent writing! Perfect!)';
+                icon = '🏆';
+            } else if (score >= 70) {
+                feedbackMessage = '写得很好！继续练习！ (Great writing! Keep practicing!)';
+                icon = '👍';
+            } else if (score >= 50) {
+                feedbackMessage = '不错的尝试！再练习一下！ (Good try! Practice more!)';
+                icon = '👌';
+            } else {
+                feedbackMessage = '继续努力！慢慢来！ (Keep trying! Take it slow!)';
+                icon = '💪';
+            }
+            
+            // 显示成就
+            showAchievement(icon, feedbackMessage);
             
             // 增加进度
             const progressBar = document.getElementById('progressBar');
             const currentWidth = parseInt(progressBar.style.width);
-            progressBar.style.width = Math.min(currentWidth + 10, 100) + '%';
+            const progressIncrease = Math.max(5, Math.floor(score / 10)); // 根据分数增加进度
+            progressBar.style.width = Math.min(currentWidth + progressIncrease, 100) + '%';
             
             // 如果进度达到100%，添加星星
-            if (currentWidth + 10 >= 100) {
+            if (currentWidth + progressIncrease >= 100) {
                 const stars = document.querySelectorAll('.star:not(.filled)');
                 if (stars.length > 0) {
                     stars[0].classList.add('filled');
                     showAchievement('🌟', '恭喜获得一颗星星！(Congratulations on earning a star!)');
                 }
                 progressBar.style.width = '0%';
+            }
+            
+            // 添加CSS样式
+            if (!document.getElementById('score-styles')) {
+                const style = document.createElement('style');
+                style.id = 'score-styles';
+                style.textContent = `
+                    .score-value {
+                        font-size: 3rem;
+                        font-weight: bold;
+                        color: var(--primary);
+                        text-align: center;
+                        margin: 10px 0;
+                        position: relative;
+                    }
+                    
+                    .score-animation {
+                        animation: pulse 1s ease-in-out;
+                    }
+                    
+                    @keyframes pulse {
+                        0% { transform: scale(1); }
+                        50% { transform: scale(1.5); }
+                        100% { transform: scale(1); }
+                    }
+                `;
+                document.head.appendChild(style);
             }
         }
         
