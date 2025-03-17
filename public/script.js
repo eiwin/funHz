@@ -6,6 +6,8 @@ let currentPage = 1;
 let itemsPerPage = 12;
 let availableCharacters = [];
 let characterCategories = {};
+// Always use female voice since male voice isn't working properly
+let voiceGender = 'female';
 
 function speak(text) {
     // 添加动画效果
@@ -37,8 +39,11 @@ function speak(text) {
     // 使用微软Edge浏览器TTS服务 - 这个服务通常没有CORS限制
     const audio = new Audio();
     
-    // 微软Edge TTS API
-    audio.src = `https://api.edge-speech-tts.cn/api/tts?text=${encodeURIComponent(text)}&lang=zh-CN&voice=zh-CN-XiaoxiaoNeural`;
+    // 确保使用普通话（北方官话）声音 - 使用女声
+    // 微软Edge TTS API - 添加速度参数，降低语速
+    const voice = 'zh-CN-XiaoxiaoNeural'; // 小小，女声
+    
+    audio.src = `https://api.edge-speech-tts.cn/api/tts?text=${encodeURIComponent(text)}&lang=zh-CN&voice=${voice}&rate=-20`;
     
     // 播放音频
     audio.play()
@@ -55,10 +60,10 @@ function speak(text) {
         })
         .catch(error => {
             console.error('音频播放失败:', error);
-            console.log('尝试备用方案');
             
-            // 如果微软API失败，尝试使用有道TTS API
-            tryYoudaoTTS(text);
+            // 尝试使用Web Speech API
+            console.log('尝试使用Web Speech API...');
+            playWithWebSpeechAPI(text);
         });
 }
 
@@ -100,8 +105,11 @@ function tryXunfeiTTS(text) {
     // 创建音频元素
     const audio = new Audio();
     
-    // 讯飞开放平台TTS API (通过代理)
-    audio.src = `https://fanyi.sogou.com/reventondc/synthesis?text=${encodeURIComponent(text)}&speed=1&lang=zh-CHS&from=translateweb&speaker=1`;
+    // 使用女声 (1是女声)
+    const speaker = '1';
+    
+    // 讯飞开放平台TTS API (通过代理) - 添加速度参数，确保使用普通话
+    audio.src = `https://fanyi.sogou.com/reventondc/synthesis?text=${encodeURIComponent(text)}&speed=0.7&lang=zh-CHS&from=translateweb&speaker=${speaker}`;
     
     // 播放音频
     audio.play()
@@ -170,8 +178,8 @@ function showTTSGuide(text) {
     instructions.style.marginBottom = '20px';
     instructions.style.textAlign = 'left';
     instructions.innerHTML = `
-        <p>请选择以下翻译服务来听发音：</p>
-        <p style="color: #666;">Please select a translation service to hear pronunciation:</p>
+        <p>请选择以下翻译服务来听普通话发音：</p>
+        <p style="color: #666;">Please select a translation service to hear Mandarin pronunciation:</p>
     `;
     container.appendChild(instructions);
     
@@ -195,6 +203,7 @@ function showTTSGuide(text) {
     openGoogleButton.style.cursor = 'pointer';
     openGoogleButton.style.fontSize = '1.2rem';
     openGoogleButton.onclick = () => {
+        // 确保使用zh-CN（普通话）而非zh-HK（粤语）
         window.open(`https://translate.google.com/?sl=zh-CN&tl=en&text=${encodeURIComponent(text)}&op=translate`, '_blank');
     };
     buttonContainer.appendChild(openGoogleButton);
@@ -242,8 +251,8 @@ function showTTSGuide(text) {
     edgeTip.style.fontSize = '0.9rem';
     edgeTip.innerHTML = `
         <p><strong>💡 提示 (Tip):</strong></p>
-        <p>想要更好的语音体验？尝试使用手机版Edge浏览器并启用"允许跨域请求"。</p>
-        <p style="color: #666;">For better voice experience, try using Edge browser on mobile and enable "Allow cross-origin requests".</p>
+        <p>想要更好的普通话语音体验？尝试使用手机版Edge浏览器并启用"允许跨域请求"。</p>
+        <p style="color: #666;">For better Mandarin voice experience, try using Edge browser on mobile and enable "Allow cross-origin requests".</p>
     `;
     buttonContainer.appendChild(edgeTip);
     
@@ -291,9 +300,24 @@ function playWithWebSpeechAPI(text) {
         
         // 创建新的语音合成实例
         const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = 'zh-CN';
-        utterance.rate = 0.8;
+        // 确保使用普通话
+        utterance.lang = 'zh-CN';  // 中国大陆普通话
+        // 降低语速，从0.8降低到0.6
+        utterance.rate = 0.6;
         utterance.volume = 1.0;
+        
+        // 获取可用的语音
+        let voices = window.speechSynthesis.getVoices();
+        
+        // 如果voices为空，等待voices加载完成
+        if (voices.length === 0) {
+            window.speechSynthesis.onvoiceschanged = function() {
+                voices = window.speechSynthesis.getVoices();
+                setVoiceByGender(utterance, voices);
+            };
+        } else {
+            setVoiceByGender(utterance, voices);
+        }
         
         // 添加错误处理
         utterance.onerror = (event) => {
@@ -315,6 +339,51 @@ function playWithWebSpeechAPI(text) {
     } catch (error) {
         console.error('语音播放失败:', error);
         showToast('语音播放失败 😢 (Speech playback failed)');
+    }
+}
+
+// 根据性别设置声音
+function setVoiceByGender(utterance, voices) {
+    console.log('Available voices:', voices.map(v => `${v.name} (${v.lang})`).join(', '));
+    
+    // 筛选普通话声音（zh-CN，而非zh-HK或zh-TW）
+    const mandarinVoices = voices.filter(voice => 
+        voice.lang === 'zh-CN' || voice.lang.startsWith('zh-CN')
+    );
+    
+    console.log('Mandarin voices:', mandarinVoices.map(v => v.name).join(', '));
+    
+    if (mandarinVoices.length > 0) {
+        // 根据性别选择声音
+        let genderVoices = [];
+        
+        if (voiceGender === 'male') {
+            genderVoices = mandarinVoices.filter(voice => 
+                voice.name.toLowerCase().includes('male') || 
+                voice.name.toLowerCase().includes('男') ||
+                voice.name.includes('云希') ||
+                voice.name.includes('Yunxi') ||
+                voice.name.includes('Kangkang')
+            );
+        } else {
+            genderVoices = mandarinVoices.filter(voice => 
+                voice.name.toLowerCase().includes('female') || 
+                voice.name.toLowerCase().includes('女') ||
+                voice.name.includes('小小') ||
+                voice.name.includes('Xiaoxiao') ||
+                voice.name.includes('Huihui')
+            );
+        }
+        
+        console.log(`${voiceGender} voices:`, genderVoices.map(v => v.name).join(', '));
+        
+        if (genderVoices.length > 0) {
+            utterance.voice = genderVoices[0];
+            console.log('Selected voice:', genderVoices[0].name);
+        } else {
+            utterance.voice = mandarinVoices[0];
+            console.log('Fallback to first Mandarin voice:', mandarinVoices[0].name);
+        }
     }
 }
 
