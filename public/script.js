@@ -1,1323 +1,670 @@
-// 全局变量
-let learningProgress = {};
-let currentCategory = 'all';
-let currentLevel = 'all';
-let currentPage = 1;
-let itemsPerPage = 12;
-let availableCharacters = [];
-let characterCategories = {};
-// Always use female voice since male voice isn't working properly
-let voiceGender = 'female';
-
-function speak(text) {
-    // 添加动画效果
-    const soundButton = document.querySelector('.play-sound:hover') || document.querySelector('.main-character .play-sound');
-    if (soundButton) {
-        soundButton.classList.add('wiggle');
-        setTimeout(() => soundButton.classList.remove('wiggle'), 1000);
+// Chinese Vocabulary Memorization App
+class VocabularyApp {
+    constructor() {
+        this.vocabulary = JSON.parse(localStorage.getItem('chineseVocabulary')) || [];
+        this.currentPracticeSet = [];
+        this.currentCardIndex = 0;
+        this.practiceStats = {
+            correct: 0,
+            incorrect: 0,
+            total: 0
+        };
+        this.totalScore = parseInt(localStorage.getItem('totalScore')) || 0;
+        this.isFlipped = false;
+        this.isPinyinEditing = false;
+        
+        this.init();
     }
     
-    // 检测是否是Edge浏览器
-    const isEdge = /Edg/.test(navigator.userAgent);
+    init() {
+        this.bindEvents();
+        this.updateDisplay();
+        this.updateScoreDisplay();
+        
+        // Add some sample words if vocabulary is empty
+        if (this.vocabulary.length === 0) {
+            this.addSampleWords();
+        }
+    }
     
-    // 在iOS设备上直接显示备选方案对话框
-    if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
-        console.log('iOS设备检测到，直接显示备选方案');
-        // 如果是Edge浏览器，尝试使用Edge TTS API
-        if (isEdge) {
-            console.log('Edge浏览器检测到，尝试使用Edge TTS API');
-            showToast('尝试使用Edge TTS... (Trying Edge TTS...)');
-        } else {
-            showTTSGuide(text);
+    bindEvents() {
+        // Add word form
+        document.getElementById('addWordBtn').addEventListener('click', () => this.addWord());
+        
+        // Chinese input auto-pinyin generation
+        document.getElementById('chineseInput').addEventListener('input', (e) => this.generatePinyin(e.target.value));
+        
+        // Edit pinyin button
+        document.getElementById('editPinyinBtn').addEventListener('click', () => this.togglePinyinEdit());
+        
+        // Enter key support for inputs
+        ['chineseInput', 'englishInput'].forEach(id => {
+            document.getElementById(id).addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') this.addWord();
+            });
+        });
+        
+        // Pinyin input enter key (when editing)
+        document.getElementById('pinyinInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                if (this.isPinyinEditing) {
+                    this.togglePinyinEdit();
+                } else {
+                    this.addWord();
+                }
+            }
+        });
+        
+        // Practice controls
+        document.getElementById('startPracticeBtn').addEventListener('click', () => this.startPractice());
+        document.getElementById('backBtn').addEventListener('click', () => this.backToWordList());
+        
+        // Flashcard controls
+        document.getElementById('flipBtn').addEventListener('click', () => this.flipCard());
+        document.getElementById('speakBtn').addEventListener('click', () => this.speakChinese());
+        document.getElementById('knowBtn').addEventListener('click', () => this.markAsKnown());
+        document.getElementById('dontKnowBtn').addEventListener('click', () => this.markAsUnknown());
+        
+        // Results controls
+        document.getElementById('retryBtn').addEventListener('click', () => this.retryPractice());
+        document.getElementById('continueBtn').addEventListener('click', () => this.backToWordList());
+        
+        // Mascot interaction
+        document.getElementById('mascot').addEventListener('click', () => this.mascotInteraction());
+    }
+    
+    generatePinyin(chineseText) {
+        if (!chineseText.trim()) {
+            document.getElementById('pinyinInput').value = '';
             return;
         }
-    }
-    
-    // 显示加载提示
-    showToast('正在加载语音... (Loading audio...)');
-    
-    // 使用微软Edge浏览器TTS服务 - 这个服务通常没有CORS限制
-    const audio = new Audio();
-    
-    // 确保使用普通话（北方官话）声音 - 使用女声
-    // 微软Edge TTS API - 添加速度参数，降低语速
-    const voice = 'zh-CN-XiaoxiaoNeural'; // 小小，女声
-    
-    audio.src = `https://api.edge-speech-tts.cn/api/tts?text=${encodeURIComponent(text)}&lang=zh-CN&voice=${voice}&rate=-20`;
-    
-    // 播放音频
-    audio.play()
-        .then(() => {
-            console.log('音频播放成功');
-            showToast('播放中... (Playing...)');
-            
-            // 播放完成后显示鼓励信息
-            audio.onended = () => {
-                if (Math.random() < 0.3) {
-                    showAchievement('🎯', '发音真棒！(Great pronunciation!)');
-                }
-            };
-        })
-        .catch(error => {
-            console.error('音频播放失败:', error);
-            
-            // 尝试使用Web Speech API
-            console.log('尝试使用Web Speech API...');
-            playWithWebSpeechAPI(text);
-        });
-}
-
-// 使用有道TTS API作为备用方案
-function tryYoudaoTTS(text) {
-    showToast('尝试备用语音服务... (Trying backup service...)');
-    
-    // 创建音频元素
-    const audio = new Audio();
-    
-    // 有道翻译TTS API
-    audio.src = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(text)}&le=zh&type=1`;
-    
-    // 播放音频
-    audio.play()
-        .then(() => {
-            console.log('备用音频播放成功');
-            showToast('播放中... (Playing...)');
-            
-            // 播放完成后显示鼓励信息
-            audio.onended = () => {
-                if (Math.random() < 0.3) {
-                    showAchievement('🎯', '发音真棒！(Great pronunciation!)');
-                }
-            };
-        })
-        .catch(error => {
-            console.error('备用音频播放失败:', error);
-            
-            // 如果两个API都失败，尝试使用讯飞TTS API
-            tryXunfeiTTS(text);
-        });
-}
-
-// 使用讯飞TTS API作为第三备选方案
-function tryXunfeiTTS(text) {
-    showToast('尝试第三备用语音服务... (Trying third backup service...)');
-    
-    // 创建音频元素
-    const audio = new Audio();
-    
-    // 使用女声 (1是女声)
-    const speaker = '1';
-    
-    // 讯飞开放平台TTS API (通过代理) - 添加速度参数，确保使用普通话
-    audio.src = `https://fanyi.sogou.com/reventondc/synthesis?text=${encodeURIComponent(text)}&speed=0.7&lang=zh-CHS&from=translateweb&speaker=${speaker}`;
-    
-    // 播放音频
-    audio.play()
-        .then(() => {
-            console.log('第三备用音频播放成功');
-            showToast('播放中... (Playing...)');
-            
-            // 播放完成后显示鼓励信息
-            audio.onended = () => {
-                if (Math.random() < 0.3) {
-                    showAchievement('🎯', '发音真棒！(Great pronunciation!)');
-                }
-            };
-        })
-        .catch(error => {
-            console.error('第三备用音频播放失败:', error);
-            
-            // 如果所有API都失败，显示模态对话框
-            showTTSGuide(text);
-        });
-}
-
-// 显示TTS指南对话框（作为最后的备选方案）
-function showTTSGuide(text) {
-    // 创建一个模态对话框
-    const modal = document.createElement('div');
-    modal.style.position = 'fixed';
-    modal.style.top = '0';
-    modal.style.left = '0';
-    modal.style.width = '100%';
-    modal.style.height = '100%';
-    modal.style.backgroundColor = 'rgba(0,0,0,0.8)';
-    modal.style.zIndex = '9999';
-    modal.style.display = 'flex';
-    modal.style.flexDirection = 'column';
-    modal.style.justifyContent = 'center';
-    modal.style.alignItems = 'center';
-    modal.style.padding = '20px';
-    
-    // 创建内容容器
-    const container = document.createElement('div');
-    container.style.backgroundColor = 'white';
-    container.style.padding = '20px';
-    container.style.borderRadius = '10px';
-    container.style.maxWidth = '90%';
-    container.style.textAlign = 'center';
-    
-    // 添加标题
-    const title = document.createElement('h2');
-    title.textContent = '语音播放选项 (Audio Options)';
-    title.style.marginBottom = '20px';
-    container.appendChild(title);
-    
-    // 添加文本显示
-    const textDisplay = document.createElement('div');
-    textDisplay.style.fontSize = '2rem';
-    textDisplay.style.padding = '20px';
-    textDisplay.style.marginBottom = '20px';
-    textDisplay.style.backgroundColor = '#f8f8f8';
-    textDisplay.style.borderRadius = '5px';
-    textDisplay.textContent = text;
-    container.appendChild(textDisplay);
-    
-    // 添加说明
-    const instructions = document.createElement('div');
-    instructions.style.marginBottom = '20px';
-    instructions.style.textAlign = 'left';
-    instructions.innerHTML = `
-        <p>请选择以下翻译服务来听普通话发音：</p>
-        <p style="color: #666;">Please select a translation service to hear Mandarin pronunciation:</p>
-    `;
-    container.appendChild(instructions);
-    
-    // 添加按钮容器
-    const buttonContainer = document.createElement('div');
-    buttonContainer.style.display = 'flex';
-    buttonContainer.style.flexDirection = 'column';
-    buttonContainer.style.alignItems = 'center';
-    buttonContainer.style.gap = '15px';
-    buttonContainer.style.marginBottom = '20px';
-    
-    // 添加打开谷歌翻译按钮
-    const openGoogleButton = document.createElement('button');
-    openGoogleButton.textContent = '谷歌翻译 (Google Translate)';
-    openGoogleButton.style.padding = '15px 25px';
-    openGoogleButton.style.width = '90%';
-    openGoogleButton.style.backgroundColor = '#4285F4';
-    openGoogleButton.style.color = 'white';
-    openGoogleButton.style.border = 'none';
-    openGoogleButton.style.borderRadius = '5px';
-    openGoogleButton.style.cursor = 'pointer';
-    openGoogleButton.style.fontSize = '1.2rem';
-    openGoogleButton.onclick = () => {
-        // 确保使用zh-CN（普通话）而非zh-HK（粤语）
-        window.open(`https://translate.google.com/?sl=zh-CN&tl=en&text=${encodeURIComponent(text)}&op=translate`, '_blank');
-    };
-    buttonContainer.appendChild(openGoogleButton);
-    
-    // 添加打开百度翻译按钮
-    const openBaiduButton = document.createElement('button');
-    openBaiduButton.textContent = '百度翻译 (Baidu Translate)';
-    openBaiduButton.style.padding = '15px 25px';
-    openBaiduButton.style.width = '90%';
-    openBaiduButton.style.backgroundColor = '#2932E1';
-    openBaiduButton.style.color = 'white';
-    openBaiduButton.style.border = 'none';
-    openBaiduButton.style.borderRadius = '5px';
-    openBaiduButton.style.cursor = 'pointer';
-    openBaiduButton.style.fontSize = '1.2rem';
-    openBaiduButton.onclick = () => {
-        window.open(`https://fanyi.baidu.com/#zh/en/${encodeURIComponent(text)}`, '_blank');
-    };
-    buttonContainer.appendChild(openBaiduButton);
-    
-    // 添加打开有道翻译按钮
-    const openYoudaoButton = document.createElement('button');
-    openYoudaoButton.textContent = '有道翻译 (Youdao Translate)';
-    openYoudaoButton.style.padding = '15px 25px';
-    openYoudaoButton.style.width = '90%';
-    openYoudaoButton.style.backgroundColor = '#2A9D8F';
-    openYoudaoButton.style.color = 'white';
-    openYoudaoButton.style.border = 'none';
-    openYoudaoButton.style.borderRadius = '5px';
-    openYoudaoButton.style.cursor = 'pointer';
-    openYoudaoButton.style.fontSize = '1.2rem';
-    openYoudaoButton.onclick = () => {
-        window.open(`https://www.youdao.com/w/eng/${encodeURIComponent(text)}/#keyfrom=dict2.index`, '_blank');
-    };
-    buttonContainer.appendChild(openYoudaoButton);
-    
-    // 添加Edge浏览器提示
-    const edgeTip = document.createElement('div');
-    edgeTip.style.backgroundColor = '#f0f8ff';
-    edgeTip.style.padding = '15px';
-    edgeTip.style.borderRadius = '5px';
-    edgeTip.style.marginBottom = '15px';
-    edgeTip.style.width = '90%';
-    edgeTip.style.textAlign = 'left';
-    edgeTip.style.fontSize = '0.9rem';
-    edgeTip.innerHTML = `
-        <p><strong>💡 提示 (Tip):</strong></p>
-        <p>想要更好的普通话语音体验？尝试使用手机版Edge浏览器并启用"允许跨域请求"。</p>
-        <p style="color: #666;">For better Mandarin voice experience, try using Edge browser on mobile and enable "Allow cross-origin requests".</p>
-    `;
-    buttonContainer.appendChild(edgeTip);
-    
-    // 添加关闭按钮
-    const closeButton = document.createElement('button');
-    closeButton.textContent = '关闭 (Close)';
-    closeButton.style.padding = '12px 20px';
-    closeButton.style.width = '50%';
-    closeButton.style.backgroundColor = '#f44336';
-    closeButton.style.color = 'white';
-    closeButton.style.border = 'none';
-    closeButton.style.borderRadius = '5px';
-    closeButton.style.cursor = 'pointer';
-    closeButton.style.fontSize = '1rem';
-    closeButton.onclick = () => document.body.removeChild(modal);
-    buttonContainer.appendChild(closeButton);
-    
-    container.appendChild(buttonContainer);
-    
-    // 将容器添加到模态框
-    modal.appendChild(container);
-    
-    // 将模态框添加到页面
-    document.body.appendChild(modal);
-    
-    // 60秒后自动关闭模态框（如果用户没有关闭）
-    setTimeout(() => {
-        if (document.body.contains(modal)) {
-            document.body.removeChild(modal);
-        }
-    }, 60000);
-}
-
-// 使用Web Speech API播放（非iOS设备）
-function playWithWebSpeechAPI(text) {
-    if (!window.speechSynthesis) {
-        console.error('浏览器不支持语音合成');
-        showToast('抱歉，你的浏览器不支持语音功能 😢 (Sorry, your browser does not support speech)');
-        return;
-    }
-    
-    try {
-        // 在播放前取消所有正在进行的语音
-        window.speechSynthesis.cancel();
         
-        // 创建新的语音合成实例
-        const utterance = new SpeechSynthesisUtterance(text);
-        // 确保使用普通话
-        utterance.lang = 'zh-CN';  // 中国大陆普通话
-        // 降低语速，从0.8降低到0.6
-        utterance.rate = 0.6;
-        utterance.volume = 1.0;
-        
-        // 获取可用的语音
-        let voices = window.speechSynthesis.getVoices();
-        
-        // 如果voices为空，等待voices加载完成
-        if (voices.length === 0) {
-            window.speechSynthesis.onvoiceschanged = function() {
-                voices = window.speechSynthesis.getVoices();
-                setVoiceByGender(utterance, voices);
-            };
-        } else {
-            setVoiceByGender(utterance, voices);
+        // Don't update if user is currently editing pinyin
+        if (this.isPinyinEditing) {
+            return;
         }
         
-        // 添加错误处理
-        utterance.onerror = (event) => {
-            console.error('语音合成错误:', event);
-            showToast('语音播放失败 😢 (Speech playback failed)');
+        // Use comprehensive built-in pinyin mapping
+        const pinyinResult = this.convertToPinyin(chineseText);
+        document.getElementById('pinyinInput').value = pinyinResult;
+    }
+    
+    convertToPinyin(chineseText) {
+        // Expanded pinyin mapping for Chinese characters
+        const pinyinMap = {
+            // Basic greetings and common words
+            '你': 'nǐ', '好': 'hǎo', '我': 'wǒ', '是': 'shì', '的': 'de', '在': 'zài', 
+            '有': 'yǒu', '不': 'bù', '人': 'rén', '他': 'tā', '她': 'tā', '它': 'tā', 
+            '们': 'men', '这': 'zhè', '那': 'nà', '什': 'shén', '么': 'me', '时': 'shí',
+            '候': 'hòu', '地': 'dì', '方': 'fāng', '年': 'nián', '月': 'yuè', '日': 'rì',
+            
+            // Common verbs
+            '来': 'lái', '去': 'qù', '出': 'chū', '可': 'kě', '以': 'yǐ', '说': 'shuō',
+            '话': 'huà', '看': 'kàn', '听': 'tīng', '吃': 'chī', '喝': 'hē', '买': 'mǎi',
+            '卖': 'mài', '做': 'zuò', '想': 'xiǎng', '要': 'yào', '爱': 'ài', '喜': 'xǐ',
+            '欢': 'huān', '学': 'xué', '习': 'xí', '工': 'gōng', '作': 'zuò', '休': 'xiū',
+            '息': 'xī', '睡': 'shuì', '觉': 'jiào', '走': 'zǒu', '跑': 'pǎo', '飞': 'fēi',
+            
+            // Numbers
+            '一': 'yī', '二': 'èr', '三': 'sān', '四': 'sì', '五': 'wǔ', '六': 'liù',
+            '七': 'qī', '八': 'bā', '九': 'jiǔ', '十': 'shí', '零': 'líng', '百': 'bǎi',
+            '千': 'qiān', '万': 'wàn',
+            
+            // Family
+            '爸': 'bà', '妈': 'mā', '儿': 'ér', '女': 'nǚ', '子': 'zi', '孩': 'hái',
+            '朋': 'péng', '友': 'yǒu', '老': 'lǎo', '师': 'shī', '同': 'tóng', '学': 'xué',
+            
+            // Food and drinks
+            '苹': 'píng', '果': 'guǒ', '香': 'xiāng', '蕉': 'jiāo', '橙': 'chéng', '葡': 'pú',
+            '萄': 'táo', '西': 'xī', '瓜': 'guā', '米': 'mǐ', '饭': 'fàn', '面': 'miàn',
+            '包': 'bāo', '肉': 'ròu', '鱼': 'yú', '鸡': 'jī', '蛋': 'dàn', '菜': 'cài',
+            '汤': 'tāng', '茶': 'chá', '咖': 'kā', '啡': 'fēi', '水': 'shuǐ', '奶': 'nǎi',
+            
+            // Colors
+            '红': 'hóng', '黄': 'huáng', '蓝': 'lán', '绿': 'lǜ', '白': 'bái', '黑': 'hēi',
+            '紫': 'zǐ', '粉': 'fěn', '灰': 'huī', '棕': 'zōng',
+            
+            // Adjectives
+            '大': 'dà', '小': 'xiǎo', '高': 'gāo', '矮': 'ǎi', '长': 'cháng', '短': 'duǎn',
+            '新': 'xīn', '旧': 'jiù', '快': 'kuài', '慢': 'màn', '热': 'rè', '冷': 'lěng',
+            '好': 'hǎo', '坏': 'huài', '美': 'měi', '丑': 'chǒu', '胖': 'pàng', '瘦': 'shòu',
+            '聪': 'cōng', '明': 'míng', '笨': 'bèn', '懒': 'lǎn', '勤': 'qín', '奋': 'fèn',
+            
+            // Transportation
+            '车': 'chē', '船': 'chuán', '飞': 'fēi', '机': 'jī', '火': 'huǒ', '汽': 'qì',
+            '自': 'zì', '行': 'xíng', '地': 'dì', '铁': 'tiě', '公': 'gōng', '交': 'jiāo',
+            
+            // Places
+            '家': 'jiā', '学': 'xué', '校': 'xiào', '医': 'yī', '院': 'yuàn', '银': 'yín',
+            '商': 'shāng', '店': 'diàn', '餐': 'cān', '厅': 'tīng', '公': 'gōng', '园': 'yuán',
+            '图': 'tú', '书': 'shū', '馆': 'guǎn', '电': 'diàn', '影': 'yǐng', '城': 'chéng',
+            '市': 'shì', '国': 'guó', '中': 'zhōng', '美': 'měi', '英': 'yīng', '法': 'fǎ',
+            '德': 'dé', '日': 'rì', '本': 'běn', '韩': 'hán',
+            
+            // Body parts
+            '头': 'tóu', '眼': 'yǎn', '睛': 'jīng', '鼻': 'bí', '嘴': 'zuǐ', '耳': 'ěr',
+            '朵': 'duǒ', '手': 'shǒu', '脚': 'jiǎo', '腿': 'tuǐ', '身': 'shēn', '体': 'tǐ',
+            
+            // Technology
+            '电': 'diàn', '脑': 'nǎo', '手': 'shǒu', '机': 'jī', '网': 'wǎng', '络': 'luò',
+            '游': 'yóu', '戏': 'xì', '音': 'yīn', '乐': 'yuè', '视': 'shì', '频': 'pín',
+            
+            // Weather
+            '天': 'tiān', '气': 'qì', '晴': 'qíng', '阴': 'yīn', '雨': 'yǔ', '雪': 'xuě',
+            '风': 'fēng', '云': 'yún', '太': 'tài', '阳': 'yáng', '月': 'yuè', '亮': 'liàng',
+            '星': 'xīng', '空': 'kōng',
+            
+            // Common expressions
+            '谢': 'xiè', '对': 'duì', '起': 'qǐ', '没': 'méi', '关': 'guān', '系': 'xì',
+            '再': 'zài', '见': 'jiàn', '请': 'qǐng', '问': 'wèn', '帮': 'bāng', '助': 'zhù',
+            '谢': 'xiè', '谢': 'xiè', '客': 'kè', '气': 'qì', '欢': 'huān', '迎': 'yíng',
+            
+            // Time
+            '今': 'jīn', '明': 'míng', '昨': 'zuó', '早': 'zǎo', '上': 'shàng', '中': 'zhōng',
+            '午': 'wǔ', '下': 'xià', '晚': 'wǎn', '夜': 'yè', '点': 'diǎn', '分': 'fēn',
+            '秒': 'miǎo', '小': 'xiǎo', '时': 'shí', '周': 'zhōu', '末': 'mò',
+            
+            // Money and shopping
+            '钱': 'qián', '元': 'yuán', '块': 'kuài', '毛': 'máo', '分': 'fēn', '贵': 'guì',
+            '便': 'pián', '宜': 'yí', '多': 'duō', '少': 'shǎo', '价': 'jià', '格': 'gé',
+            
+            // Emotions
+            '高': 'gāo', '兴': 'xìng', '开': 'kāi', '心': 'xīn', '难': 'nán', '过': 'guò',
+            '生': 'shēng', '气': 'qì', '害': 'hài', '怕': 'pà', '紧': 'jǐn', '张': 'zhāng',
+            '放': 'fàng', '松': 'sōng', '累': 'lèi', '困': 'kùn',
+            
+            // Directions
+            '东': 'dōng', '南': 'nán', '西': 'xī', '北': 'běi', '左': 'zuǒ', '右': 'yòu',
+            '前': 'qián', '后': 'hòu', '里': 'lǐ', '外': 'wài', '旁': 'páng', '边': 'biān',
+            
+            // Common objects
+            '房': 'fáng', '间': 'jiān', '门': 'mén', '窗': 'chuāng', '桌': 'zhuō', '椅': 'yǐ',
+            '床': 'chuáng', '沙': 'shā', '发': 'fā', '电': 'diàn', '视': 'shì', '冰': 'bīng',
+            '箱': 'xiāng', '洗': 'xǐ', '衣': 'yī', '空': 'kōng', '调': 'tiáo',
+            
+            // Clothing
+            '衣': 'yī', '服': 'fú', '裤': 'kù', '裙': 'qún', '鞋': 'xié', '帽': 'mào',
+            '袜': 'wà', '眼': 'yǎn', '镜': 'jìng', '手': 'shǒu', '表': 'biǎo', '包': 'bāo',
+            
+            // School subjects
+            '语': 'yǔ', '文': 'wén', '数': 'shù', '英': 'yīng', '历': 'lì', '史': 'shǐ',
+            '地': 'dì', '理': 'lǐ', '物': 'wù', '化': 'huà', '生': 'shēng', '物': 'wù',
+            '音': 'yīn', '乐': 'yuè', '美': 'měi', '术': 'shù', '体': 'tǐ', '育': 'yù',
+            
+            // Sports
+            '足': 'zú', '球': 'qiú', '篮': 'lán', '排': 'pái', '乒': 'pīng', '乓': 'pāng',
+            '羽': 'yǔ', '毛': 'máo', '游': 'yóu', '泳': 'yǒng', '跑': 'pǎo', '步': 'bù',
+            
+            // Animals
+            '猫': 'māo', '狗': 'gǒu', '鸟': 'niǎo', '鱼': 'yú', '马': 'mǎ', '牛': 'niú',
+            '羊': 'yáng', '猪': 'zhū', '鸡': 'jī', '鸭': 'yā', '兔': 'tù', '熊': 'xióng',
+            '猴': 'hóu', '老': 'lǎo', '虎': 'hǔ', '狮': 'shī', '象': 'xiàng', '蛇': 'shé', 
+            '龙': 'lóng', '鼠': 'shǔ', '牛': 'niú', '虎': 'hǔ', '兔': 'tù', '龙': 'lóng',
+            '蛇': 'shé', '马': 'mǎ', '羊': 'yáng', '猴': 'hóu', '鸡': 'jī', '狗': 'gǒu',
+            '猪': 'zhū', '鹿': 'lù', '狼': 'láng', '狐': 'hú', '狸': 'lí', '熊': 'xióng',
+            
+            // More food items
+            '饺': 'jiǎo', '子': 'zi', '馒': 'mán', '头': 'tóu', '粥': 'zhōu', '豆': 'dòu',
+            '腐': 'fǔ', '酸': 'suān', '甜': 'tián', '苦': 'kǔ', '辣': 'là', '咸': 'xián',
+            '油': 'yóu', '盐': 'yán', '糖': 'táng', '醋': 'cù', '酱': 'jiàng', '葱': 'cōng',
+            '蒜': 'suàn', '姜': 'jiāng', '椒': 'jiāo', '萝': 'luó', '卜': 'bo', '土': 'tǔ',
+            '豆': 'dòu', '白': 'bái', '菜': 'cài', '青': 'qīng', '花': 'huā', '菜': 'cài',
+            
+            // More verbs
+            '跳': 'tiào', '唱': 'chàng', '跳': 'tiào', '舞': 'wǔ', '画': 'huà', '写': 'xiě',
+            '读': 'dú', '背': 'bèi', '记': 'jì', '忘': 'wàng', '知': 'zhī', '道': 'dào',
+            '懂': 'dǒng', '会': 'huì', '能': 'néng', '应': 'yīng', '该': 'gāi', '必': 'bì',
+            '须': 'xū', '需': 'xū', '要': 'yào', '希': 'xī', '望': 'wàng', '打': 'dǎ',
+            '拉': 'lā', '推': 'tuī', '拿': 'ná', '放': 'fàng', '给': 'gěi', '送': 'sòng',
+            
+            // More adjectives
+            '漂': 'piào', '亮': 'liàng', '帅': 'shuài', '丑': 'chǒu', '年': 'nián', '轻': 'qīng',
+            '老': 'lǎo', '幼': 'yòu', '强': 'qiáng', '弱': 'ruò', '健': 'jiàn', '康': 'kāng',
+            '病': 'bìng', '痛': 'tòng', '舒': 'shū', '服': 'fú', '危': 'wēi', '险': 'xiǎn',
+            '安': 'ān', '全': 'quán', '干': 'gān', '净': 'jìng', '脏': 'zāng', '乱': 'luàn',
+            '整': 'zhěng', '齐': 'qí', '简': 'jiǎn', '单': 'dān', '复': 'fù', '杂': 'zá'
         };
-
-        // 添加语音播放完成处理
-        utterance.onend = () => {
-            console.log('语音播放完成');
-            // 随机显示鼓励信息
-            if (Math.random() < 0.3) {
-                showAchievement('🎯', '发音真棒！(Great pronunciation!)');
+        
+        let hasUnknownChars = false;
+        const result = chineseText.split('').map(char => {
+            if (pinyinMap[char]) {
+                return pinyinMap[char];
+            } else if (/[\u4e00-\u9fff]/.test(char)) {
+                // This is a Chinese character but not in our mapping
+                hasUnknownChars = true;
+                return `[${char}]`; // Mark unknown characters
+            } else {
+                // Not a Chinese character (punctuation, numbers, etc.)
+                return char;
             }
-        };
-
-        // 播放声音
-        window.speechSynthesis.speak(utterance);
-    } catch (error) {
-        console.error('语音播放失败:', error);
-        showToast('语音播放失败 😢 (Speech playback failed)');
-    }
-}
-
-// 根据性别设置声音
-function setVoiceByGender(utterance, voices) {
-    console.log('Available voices:', voices.map(v => `${v.name} (${v.lang})`).join(', '));
-    
-    // 筛选普通话声音（zh-CN，而非zh-HK或zh-TW）
-    const mandarinVoices = voices.filter(voice => 
-        voice.lang === 'zh-CN' || voice.lang.startsWith('zh-CN')
-    );
-    
-    console.log('Mandarin voices:', mandarinVoices.map(v => v.name).join(', '));
-    
-    if (mandarinVoices.length > 0) {
-        // 根据性别选择声音
-        let genderVoices = [];
+        }).join(' ');
         
-        if (voiceGender === 'male') {
-            genderVoices = mandarinVoices.filter(voice => 
-                voice.name.toLowerCase().includes('male') || 
-                voice.name.toLowerCase().includes('男') ||
-                voice.name.includes('云希') ||
-                voice.name.includes('Yunxi') ||
-                voice.name.includes('Kangkang')
-            );
+        // Notify user if some characters couldn't be converted
+        if (hasUnknownChars) {
+            this.showToast('部分字符需要手动编辑拼音 | Some characters need manual pinyin editing');
+            // Make edit button more prominent
+            const editBtn = document.getElementById('editPinyinBtn');
+            editBtn.style.backgroundColor = '#ff6b6b';
+            editBtn.style.animation = 'pulse 1s infinite';
+        }
+        
+        return result;
+    }
+    
+    fallbackPinyin(chineseText) {
+        // This method is now replaced by the more comprehensive convertToPinyin method
+        return this.convertToPinyin(chineseText);
+    }
+    
+    togglePinyinEdit() {
+        const pinyinInput = document.getElementById('pinyinInput');
+        const editBtn = document.getElementById('editPinyinBtn');
+        
+        if (this.isPinyinEditing) {
+            // Stop editing
+            pinyinInput.readOnly = true;
+            editBtn.textContent = '✏️ 编辑 | Edit';
+            editBtn.classList.remove('editing');
+            this.isPinyinEditing = false;
+            pinyinInput.blur();
         } else {
-            genderVoices = mandarinVoices.filter(voice => 
-                voice.name.toLowerCase().includes('female') || 
-                voice.name.toLowerCase().includes('女') ||
-                voice.name.includes('小小') ||
-                voice.name.includes('Xiaoxiao') ||
-                voice.name.includes('Huihui')
-            );
-        }
-        
-        console.log(`${voiceGender} voices:`, genderVoices.map(v => v.name).join(', '));
-        
-        if (genderVoices.length > 0) {
-            utterance.voice = genderVoices[0];
-            console.log('Selected voice:', genderVoices[0].name);
-        } else {
-            utterance.voice = mandarinVoices[0];
-            console.log('Fallback to first Mandarin voice:', mandarinVoices[0].name);
-        }
-    }
-}
-
-// 回退到百度翻译方案（最后的备选方案）
-function fallbackToBaiduTranslate(text) {
-    // 使用百度翻译朗读功能（通过重定向）
-    const baiduUrl = `https://fanyi.baidu.com/#zh/en/${encodeURIComponent(text)}`;
-    
-    // 显示提示
-    showToast('正在打开百度翻译... (Opening Baidu Translate...)');
-    
-    // 打开新窗口
-    window.open(baiduUrl, '_blank');
-    
-    // 显示使用说明
-    setTimeout(() => {
-        showToast('点击百度翻译页面上的发音图标 (Click the pronunciation icon)');
-    }, 2000);
-}
-
-// 使用在线TTS服务播放声音
-function playOnlineTTS(text) {
-    // 显示加载提示
-    showToast('正在加载语音... (Loading audio...)');
-    
-    // 创建音频元素
-    const audio = new Audio();
-    
-    // 使用免费的在线TTS API
-    // 注意：这里使用的是公共API，可能有使用限制，实际应用中可能需要注册获取API密钥
-    const apiUrl = `https://api.voicerss.org/?key=e0d7d5d0b2b24ed08f2e5d5f7c71b1a1&hl=zh-cn&src=${encodeURIComponent(text)}`;
-    
-    // 设置音频源
-    audio.src = apiUrl;
-    
-    // 音频加载事件
-    audio.onloadeddata = () => {
-        console.log('音频加载完成');
-        showToast('语音已准备好 (Audio ready)');
-    };
-    
-    // 播放错误处理
-    audio.onerror = (error) => {
-        console.error('音频播放错误:', error);
-        showToast('语音加载失败，请重试 (Audio loading failed, please try again)');
-        
-        // 尝试使用备用API
-        tryBackupTTS(text);
-    };
-    
-    // 播放完成处理
-    audio.onended = () => {
-        console.log('音频播放完成');
-        // 随机显示鼓励信息
-        if (Math.random() < 0.3) {
-            showAchievement('🎯', '发音真棒！(Great pronunciation!)');
-        }
-    };
-    
-    // 播放音频
-    audio.play().catch(error => {
-        console.error('播放失败:', error);
-        
-        // 尝试使用备用API
-        tryBackupTTS(text);
-    });
-}
-
-// 尝试使用备用TTS API
-function tryBackupTTS(text) {
-    console.log('尝试使用备用TTS API');
-    showToast('正在尝试备用语音服务... (Trying backup service...)');
-    
-    // 创建音频元素
-    const audio = new Audio();
-    
-    // 使用备用的在线TTS API
-    const backupApiUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=zh-CN&client=tw-ob`;
-    
-    // 设置音频源
-    audio.src = backupApiUrl;
-    
-    // 播放错误处理
-    audio.onerror = (error) => {
-        console.error('备用API音频播放错误:', error);
-        showToast('语音服务暂时不可用 (Voice service temporarily unavailable)');
-        
-        // 显示系统朗读指南作为最后的备选方案
-        showSystemReaderGuide(text);
-    };
-    
-    // 播放完成处理
-    audio.onended = () => {
-        console.log('备用API音频播放完成');
-        // 随机显示鼓励信息
-        if (Math.random() < 0.3) {
-            showAchievement('🎯', '发音真棒！(Great pronunciation!)');
-        }
-    };
-    
-    // 播放音频
-    audio.play().catch(error => {
-        console.error('备用API播放失败:', error);
-        showToast('语音服务暂时不可用 (Voice service temporarily unavailable)');
-        
-        // 显示系统朗读指南作为最后的备选方案
-        showSystemReaderGuide(text);
-    });
-}
-
-// 显示系统朗读指南（作为最后的备选方案）
-function showSystemReaderGuide(text) {
-    // 显示提示
-    showToast('请使用系统朗读功能 (Please use system reader)');
-    
-    // 创建一个模态对话框
-    const modal = document.createElement('div');
-    modal.style.position = 'fixed';
-    modal.style.top = '0';
-    modal.style.left = '0';
-    modal.style.width = '100%';
-    modal.style.height = '100%';
-    modal.style.backgroundColor = 'rgba(0,0,0,0.8)';
-    modal.style.zIndex = '9999';
-    modal.style.display = 'flex';
-    modal.style.flexDirection = 'column';
-    modal.style.justifyContent = 'center';
-    modal.style.alignItems = 'center';
-    modal.style.padding = '20px';
-    
-    // 创建内容容器
-    const container = document.createElement('div');
-    container.style.backgroundColor = 'white';
-    container.style.padding = '20px';
-    container.style.borderRadius = '10px';
-    container.style.maxWidth = '90%';
-    container.style.textAlign = 'center';
-    
-    // 添加标题
-    const title = document.createElement('h2');
-    title.textContent = '如何听发音 (How to hear pronunciation)';
-    title.style.marginBottom = '20px';
-    container.appendChild(title);
-    
-    // 添加文本显示
-    const textDisplay = document.createElement('div');
-    textDisplay.style.fontSize = '2rem';
-    textDisplay.style.padding = '20px';
-    textDisplay.style.marginBottom = '20px';
-    textDisplay.style.backgroundColor = '#f8f8f8';
-    textDisplay.style.borderRadius = '5px';
-    textDisplay.textContent = text;
-    container.appendChild(textDisplay);
-    
-    // 添加说明
-    const instructions = document.createElement('ol');
-    instructions.style.textAlign = 'left';
-    instructions.style.marginBottom = '20px';
-    
-    const steps = [
-        '长按上方文字 (Long press the text above)',
-        '在弹出菜单中选择"朗读所选内容" (Select "Speak" from the popup menu)',
-        '系统将朗读选中的文字 (The system will read the selected text)'
-    ];
-    
-    steps.forEach(step => {
-        const li = document.createElement('li');
-        li.textContent = step;
-        li.style.marginBottom = '10px';
-        instructions.appendChild(li);
-    });
-    
-    container.appendChild(instructions);
-    
-    // 添加关闭按钮
-    const closeButton = document.createElement('button');
-    closeButton.textContent = '关闭 (Close)';
-    closeButton.style.padding = '10px 20px';
-    closeButton.style.backgroundColor = '#f44336';
-    closeButton.style.color = 'white';
-    closeButton.style.border = 'none';
-    closeButton.style.borderRadius = '5px';
-    closeButton.style.cursor = 'pointer';
-    closeButton.onclick = () => document.body.removeChild(modal);
-    container.appendChild(closeButton);
-    
-    // 将容器添加到模态框
-    modal.appendChild(container);
-    
-    // 将模态框添加到页面
-    document.body.appendChild(modal);
-}
-
-// 使用音频API播放预录制的声音（适用于iOS）
-function playAudioFile(text) {
-    console.log('使用音频API播放:', text);
-    
-    // 创建音频元素
-    const audio = new Audio();
-    
-    // 根据文本选择合适的音频文件
-    let audioFile = '';
-    
-    // 单个汉字的处理
-    if (text.length === 1) {
-        // 使用汉字的Unicode编码作为文件名
-        const charCode = text.charCodeAt(0).toString(16);
-        audioFile = `/audio/${charCode}.mp3`;
-    } else {
-        // 对于短语，使用MD5哈希作为文件名（简化版）
-        let hash = 0;
-        for (let i = 0; i < text.length; i++) {
-            hash = ((hash << 5) - hash) + text.charCodeAt(i);
-            hash = hash & hash; // 转换为32位整数
-        }
-        audioFile = `/audio/phrase_${Math.abs(hash)}.mp3`;
-    }
-    
-    // 如果没有预录制的音频，使用文本到语音API生成
-    if (!audioExists(audioFile)) {
-        generateAndPlayTTS(text);
-        return;
-    }
-    
-    // 设置音频源
-    audio.src = audioFile;
-    
-    // 播放音频
-    audio.play().then(() => {
-        console.log('音频播放成功');
-        // 随机显示鼓励信息
-        if (Math.random() < 0.3) {
-            showAchievement('🎯', '发音真棒！(Great pronunciation!)');
-        }
-    }).catch(error => {
-        console.error('音频播放失败:', error);
-        // 如果播放失败，尝试使用TTS
-        generateAndPlayTTS(text);
-    });
-}
-
-// 检查音频文件是否存在（简化版，实际应用中需要服务器端支持）
-function audioExists(audioFile) {
-    // 这里简化处理，假设所有基本汉字都有预录制音频
-    // 实际应用中应该通过AJAX请求或其他方式检查文件是否存在
-    const basicChars = ['我', '你', '他', '她', '的', '是', '日', '月', '水', '火', '山', '树', 
-                        '一', '二', '三', '四', '五', '看', '说', '走', '来', '去', '爸', '妈', '家', '哥', '姐'];
-    
-    // 如果是单个基本汉字，假设有预录制音频
-    if (audioFile.includes('/audio/') && basicChars.includes(String.fromCharCode(parseInt(audioFile.split('/').pop().split('.')[0], 16)))) {
-        return true;
-    }
-    
-    // 否则假设没有预录制音频
-    return false;
-}
-
-// 使用替代方法生成和播放TTS（适用于iOS）
-function generateAndPlayTTS(text) {
-    console.log('使用替代TTS方法播放:', text);
-    
-    // 创建一个隐藏的iframe，加载包含TTS功能的页面
-    const iframe = document.createElement('iframe');
-    iframe.style.display = 'none';
-    iframe.src = `/tts.html?text=${encodeURIComponent(text)}`;
-    
-    // 添加到文档中
-    document.body.appendChild(iframe);
-    
-    // 5秒后移除iframe
-    setTimeout(() => {
-        document.body.removeChild(iframe);
-    }, 5000);
-    
-    // 显示提示
-    showToast('正在播放语音... (Playing audio...)');
-}
-
-// 显示成就/提示
-function showAchievement(icon, text) {
-    const achievement = document.getElementById('achievement');
-    if (!achievement) return;
-    
-    achievement.querySelector('.achievement-icon').textContent = icon;
-    achievement.querySelector('.achievement-text').textContent = text;
-    achievement.classList.add('show');
-    
-    setTimeout(() => {
-        achievement.classList.remove('show');
-    }, 3000);
-}
-
-// 显示简短提示
-function showToast(message) {
-    // 创建提示元素
-    const toast = document.createElement('div');
-    toast.className = 'toast';
-    toast.textContent = message;
-    document.body.appendChild(toast);
-    
-    // 显示动画
-    setTimeout(() => toast.classList.add('show'), 10);
-    
-    // 自动消失
-    setTimeout(() => {
-        toast.classList.remove('show');
-        setTimeout(() => toast.remove(), 300);
-    }, 3000);
-}
-
-// 加载随机汉字
-async function loadRandomCharacter() {
-    try {
-        const response = await fetch('/api/random-character');
-        const data = await response.json();
-        updateContent(data);
-        
-        // 添加动画效果
-        animateCharacterDisplay();
-        
-        // 随机显示鼓励信息
-        if (Math.random() < 0.3) {
-            const messages = [
-                {zh: '看看这个有趣的汉字！', en: 'Look at this interesting character!'},
-                {zh: '新汉字来啦！', en: 'New character!'},
-                {zh: '一起来学习吧！', en: 'Let\'s learn together!'},
-                {zh: '这个汉字很有趣哦！', en: 'This character is fun!'}
-            ];
-            const selected = messages[Math.floor(Math.random() * messages.length)];
-            showAchievement('✨', `${selected.zh} (${selected.en})`);
-        }
-    } catch (error) {
-        console.error('Error:', error);
-        showToast('加载失败，请重试 😢 (Loading failed, please try again)');
-    }
-}
-
-// 处理汉字输入
-async function handleCharacterInput(event) {
-    const character = event.target.value;
-    if (character.length === 1) {
-        try {
-            const response = await fetch(`/api/character/${character}`);
-            const data = await response.json();
-            updateContent(data);
+            // Start editing
+            pinyinInput.readOnly = false;
+            editBtn.textContent = '✅ 完成 | Done';
+            editBtn.classList.add('editing');
+            this.isPinyinEditing = true;
+            pinyinInput.focus();
+            pinyinInput.select();
             
-            // 添加动画效果
-            animateCharacterDisplay();
-            
-            // 更新学习进度
-            updateLearningProgress(character);
-        } catch (error) {
-            console.error('Error:', error);
-            showToast('没有找到这个汉字 😢 (Character not found)');
+            // Reset button styling when user starts editing
+            editBtn.style.backgroundColor = '';
+            editBtn.style.animation = '';
         }
     }
-}
-
-// 更新学习进度
-function updateLearningProgress(character) {
-    if (!learningProgress[character]) {
-        learningProgress[character] = {
-            views: 0,
-            practiced: false,
-            games: 0
+    
+    addSampleWords() {
+        const sampleWords = [
+            { chinese: '你好', pinyin: 'nǐ hǎo', english: 'hello' },
+            { chinese: '谢谢', pinyin: 'xiè xiè', english: 'thank you' },
+            { chinese: '苹果', pinyin: 'píng guǒ', english: 'apple' },
+            { chinese: '学习', pinyin: 'xué xí', english: 'to study' },
+            { chinese: '朋友', pinyin: 'péng yǒu', english: 'friend' }
+        ];
+        
+        sampleWords.forEach(word => {
+            this.vocabulary.push({ ...word, id: Date.now() + Math.random() });
+        });
+        
+        this.saveVocabulary();
+        this.updateDisplay();
+    }
+    
+    addWord() {
+        const chinese = document.getElementById('chineseInput').value.trim();
+        const pinyin = document.getElementById('pinyinInput').value.trim();
+        const english = document.getElementById('englishInput').value.trim();
+        
+        if (!chinese || !english) {
+            this.showToast('请填写汉字和英文 | Please fill Chinese and English fields');
+            return;
+        }
+        
+        if (!pinyin) {
+            this.showToast('拼音未生成，请检查汉字输入 | Pinyin not generated, please check Chinese input');
+            return;
+        }
+        
+        // Check for duplicates
+        if (this.vocabulary.some(word => word.chinese === chinese)) {
+            this.showToast('这个词已经存在 | This word already exists');
+            return;
+        }
+        
+        const newWord = {
+            id: Date.now(),
+            chinese,
+            pinyin,
+            english,
+            addedAt: new Date().toISOString()
         };
-    }
-    
-    learningProgress[character].views++;
-    
-    // 保存到本地存储
-    localStorage.setItem('learningProgress', JSON.stringify(learningProgress));
-    
-    // 更新进度条
-    updateProgressBar();
-    
-    // 检查成就
-    checkAchievements();
-}
-
-// 更新进度条
-function updateProgressBar() {
-    const progressBar = document.getElementById('progressBar');
-    if (!progressBar) return;
-    
-    // 计算总体进度
-    const totalChars = Object.keys(learningProgress).length;
-    const learnedChars = Object.values(learningProgress).filter(p => p.views > 2).length;
-    
-    const percentage = totalChars > 0 ? Math.min(100, Math.round((learnedChars / 26) * 100)) : 0;
-    progressBar.style.width = `${percentage}%`;
-    
-    // 如果进度达到100%，重置并添加星星
-    if (percentage >= 100) {
-        const stars = document.querySelectorAll('.star:not(.filled)');
-        if (stars.length > 0) {
-            stars[0].classList.add('filled');
-            showAchievement('🌟', '恭喜获得一颗星星！(Congratulations on earning a star!)');
-        }
         
-        // 重置进度
-        progressBar.style.width = '0%';
-    }
-}
-
-// 检查成就
-function checkAchievements() {
-    const totalViews = Object.values(learningProgress).reduce((sum, p) => sum + p.views, 0);
-    const uniqueChars = Object.keys(learningProgress).length;
-    
-    // 首次学习成就
-    if (uniqueChars === 1) {
-        showAchievement('🎉', '恭喜学习第一个汉字！(Congratulations on learning your first character!)');
+        this.vocabulary.push(newWord);
+        this.saveVocabulary();
+        this.updateDisplay();
+        this.clearInputs();
+        
+        this.showToast('词汇添加成功！| Word added successfully!');
+        this.showAchievement('📚', '新词汇已添加！| New word added!');
     }
     
-    // 学习5个汉字成就
-    if (uniqueChars === 5) {
-        showAchievement('🏆', '太棒了！已经学习了5个汉字！(Great! You\'ve learned 5 characters!)');
+    clearInputs() {
+        document.getElementById('chineseInput').value = '';
+        document.getElementById('pinyinInput').value = '';
+        document.getElementById('englishInput').value = '';
+        
+        // Reset pinyin editing state
+        if (this.isPinyinEditing) {
+            this.togglePinyinEdit();
+        }
     }
     
-    // 学习10个汉字成就
-    if (uniqueChars === 10) {
-        showAchievement('👑', '厉害！已经学习了10个汉字！(Amazing! You\'ve learned 10 characters!)');
+    deleteWord(id) {
+        this.vocabulary = this.vocabulary.filter(word => word.id !== id);
+        this.saveVocabulary();
+        this.updateDisplay();
+        this.showToast('词汇已删除 | Word deleted');
     }
     
-    // 查看次数成就
-    if (totalViews === 20) {
-        showAchievement('🔍', '你真勤奋！已经查看了20次汉字！(You\'re diligent! You\'ve viewed characters 20 times!)');
-    }
-}
-
-// 添加角色显示动画
-function animateCharacterDisplay() {
-    const charDisplay = document.querySelector('.character-display');
-    if (!charDisplay) return;
-    
-    charDisplay.classList.add('bounce');
-    setTimeout(() => charDisplay.classList.remove('bounce'), 1000);
-}
-
-// 更新内容
-function updateContent(data) {
-    if (!data) {
-        console.error('No data provided to updateContent');
-        return;
-    }
-    
-    // 更新主字符
-    const mainCharElement = document.querySelector('.main-character');
-    if (mainCharElement) {
-        mainCharElement.innerHTML = 
-            `<ruby>${data.character}<rt>${data.pinyin}</rt></ruby>
-             <button class="play-sound" onclick="speak('${data.character}')">🔊</button>`;
-    }
-    
-    // 更新英文翻译
-    const englishElement = document.querySelector('.character-display .english');
-    if (englishElement) {
-        englishElement.textContent = data.english;
-    }
-
-    // 更新词语
-    const wordsGrid = document.querySelector('.word-items-grid');
-    if (wordsGrid && data.words) {
-        wordsGrid.innerHTML = data.words.map(word => `
-            <div class="word-item">
-                <div class="chinese">
-                    ${word.chinese.split('').map(char => 
-                        `<ruby>${char}<rt>${word.pinyin[char] || ''}</rt></ruby>`
-                    ).join('')}
-                    <button class="play-sound" onclick="speak('${word.chinese}')">🔊</button>
+    updateDisplay() {
+        const wordsGrid = document.getElementById('wordsGrid');
+        const startBtn = document.getElementById('startPracticeBtn');
+        
+        if (this.vocabulary.length === 0) {
+            wordsGrid.innerHTML = '<p style="text-align: center; color: #718096;">还没有词汇，请先添加一些词汇 | No words yet, please add some words</p>';
+            startBtn.disabled = true;
+        } else {
+            wordsGrid.innerHTML = this.vocabulary.map(word => `
+                <div class="word-card">
+                    <button class="delete-btn" onclick="app.deleteWord(${word.id})">×</button>
+                    <div class="chinese">${word.chinese}</div>
+                    <div class="pinyin">${word.pinyin}</div>
+                    <div class="english">${word.english}</div>
                 </div>
-                <div class="english">${word.english}</div>
-            </div>
-        `).join('');
-        
-        // 添加动画
-        Array.from(wordsGrid.children).forEach((item, index) => {
-            setTimeout(() => {
-                item.classList.add('fade-in');
-            }, index * 100);
-        });
-    }
-
-    // 更新例句
-    const sentencesSection = document.querySelector('.sentences-section');
-    if (sentencesSection && data.sentences) {
-        const sentencesHTML = data.sentences.map(sentence => `
-            <div class="sentence-item">
-                <div class="chinese">
-                    ${sentence.chinese.split('').map(char => 
-                        `<ruby>${char}<rt>${sentence.pinyin[char] || ''}</rt></ruby>`
-                    ).join('')}
-                    <button class="play-sound" onclick="speak('${sentence.chinese}')">🔊</button>
-                </div>
-                <div class="english">${sentence.english}</div>
-            </div>
-        `).join('');
-        
-        // 保留标题，更新内容
-        const title = sentencesSection.querySelector('h2');
-        sentencesSection.innerHTML = '';
-        sentencesSection.appendChild(title);
-        
-        // 创建内容容器
-        const contentDiv = document.createElement('div');
-        contentDiv.innerHTML = sentencesHTML;
-        sentencesSection.appendChild(contentDiv);
-        
-        // 添加动画
-        Array.from(contentDiv.children).forEach((item, index) => {
-            setTimeout(() => {
-                item.classList.add('fade-in');
-            }, index * 200);
-        });
-    }
-
-    // 更新趣味解释
-    const funFactItem = document.querySelector('.fun-fact-item');
-    if (funFactItem && data.funFact) {
-        funFactItem.innerHTML = `
-            <div class="chinese">${data.funFact.chinese}</div>
-            <div class="english">${data.funFact.english}</div>
-        `;
-        funFactItem.classList.add('fade-in');
+            `).join('');
+            startBtn.disabled = false;
+        }
     }
     
-    // 更新写字练习区域
-    updateWritingPractice(data.character);
-    
-    // 更新游戏区域
-    updateGameArea(data);
-}
-
-// 更新写字练习区域
-function updateWritingPractice(character) {
-    // 如果写字区域可见，重新初始化画布
-    const writingSection = document.getElementById('writingPractice');
-    if (writingSection && writingSection.style.display !== 'none') {
-        initCanvas();
-    }
-}
-
-// 更新游戏区域
-function updateGameArea(data) {
-    // 如果游戏区域可见，重新设置游戏
-    const gameSection = document.getElementById('miniGame');
-    if (gameSection && gameSection.style.display !== 'none') {
-        setupPinyinGame();
-    }
-}
-
-// 加载分类数据
-async function loadCategories() {
-    try {
-        const response = await fetch('/api/categories');
-        const data = await response.json();
-        
-        // 保存分类数据
-        characterCategories = data;
-        
-        // 提取所有可用汉字
-        availableCharacters = [];
-        for (const category in data) {
-            if (data[category].chars && Array.isArray(data[category].chars)) {
-                const categoryChars = data[category].chars.map(item => item.char);
-                availableCharacters = availableCharacters.concat(categoryChars);
-            }
+    startPractice() {
+        if (this.vocabulary.length < 2) {
+            this.showToast('至少需要2个词汇才能开始练习 | Need at least 2 words to practice');
+            return;
         }
         
-        // 去重
-        availableCharacters = [...new Set(availableCharacters)];
+        // Reset practice stats
+        this.practiceStats = { correct: 0, incorrect: 0, total: 0 };
+        this.currentCardIndex = 0;
         
-        console.log('Available characters:', availableCharacters);
+        // Create practice set (shuffle vocabulary)
+        this.currentPracticeSet = [...this.vocabulary].sort(() => Math.random() - 0.5);
         
-        // 更新汉字列表
-        updateCharacterList();
-    } catch (error) {
-        console.error('Error loading categories:', error);
-        showToast('加载分类失败 😢 (Failed to load categories)');
-    }
-}
-
-// 切换分类
-function switchCategory(category) {
-    currentCategory = category;
-    currentPage = 1;
-    
-    // 更新UI
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.getAttribute('onclick').includes(category));
-    });
-    
-    // 更新汉字列表
-    updateCharacterList();
-    
-    // 添加动画效果
-    const charList = document.querySelector('.character-list');
-    if (charList) {
-        charList.classList.add('fade-in');
-        setTimeout(() => charList.classList.remove('fade-in'), 500);
-    }
-}
-
-// 更新汉字列表
-function updateCharacterList() {
-    const charsContainer = document.querySelector('.available-chars');
-    if (!charsContainer) return;
-    
-    // 过滤汉字
-    let filteredChars = [];
-    
-    if (currentCategory === 'all') {
-        filteredChars = availableCharacters;
-    } else if (characterCategories[currentCategory] && characterCategories[currentCategory].chars) {
-        filteredChars = characterCategories[currentCategory].chars.map(item => item.char);
+        // Show practice section
+        document.getElementById('addWordsSection').classList.add('hidden');
+        document.getElementById('practiceSection').classList.remove('hidden');
+        
+        this.showCurrentCard();
+        this.updateProgress();
     }
     
-    // 应用搜索过滤
-    const searchTerm = document.getElementById('charSearch')?.value || '';
-    if (searchTerm) {
-        filteredChars = filteredChars.filter(char => char.includes(searchTerm));
+    showCurrentCard() {
+        if (this.currentCardIndex >= this.currentPracticeSet.length) {
+            this.showResults();
+            return;
+        }
+        
+        const currentWord = this.currentPracticeSet[this.currentCardIndex];
+        
+        // Reset card state
+        this.isFlipped = false;
+        document.getElementById('flashcard').classList.remove('flipped');
+        document.getElementById('cardFront').classList.remove('hidden');
+        document.getElementById('cardBack').classList.add('hidden');
+        document.getElementById('multipleChoice').classList.add('hidden');
+        
+        // Update card content - only show Chinese on front
+        document.getElementById('chineseText').textContent = currentWord.chinese;
+        // Pinyin and English will be shown on the back when flipped
+        document.getElementById('pinyinText').textContent = currentWord.pinyin;
+        document.getElementById('englishText').textContent = currentWord.english;
+        
+        // Store current word data for flip
+        this.currentWord = currentWord;
+        
+        this.updateProgress();
     }
     
-    // 应用难度过滤
-    if (currentLevel !== 'all' && characterCategories[currentCategory]) {
-        const levelNum = parseInt(currentLevel);
-        filteredChars = characterCategories[currentCategory].chars
-            .filter(item => item.level === levelNum)
-            .map(item => item.char);
+    flipCard() {
+        this.isFlipped = !this.isFlipped;
+        const flashcard = document.getElementById('flashcard');
+        const cardFront = document.getElementById('cardFront');
+        const cardBack = document.getElementById('cardBack');
+        
+        if (this.isFlipped) {
+            flashcard.classList.add('flipped');
+            cardFront.classList.add('hidden');
+            cardBack.classList.remove('hidden');
+        } else {
+            flashcard.classList.remove('flipped');
+            cardFront.classList.remove('hidden');
+            cardBack.classList.add('hidden');
+        }
     }
     
-    // 计算分页
-    const totalPages = Math.ceil(filteredChars.length / itemsPerPage) || 1;
-    currentPage = Math.min(currentPage, totalPages);
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    const pageChars = filteredChars.slice(startIndex, endIndex);
-    
-    // 更新分页信息
-    const pageInfo = document.getElementById('pageInfo');
-    if (pageInfo) {
-        pageInfo.textContent = `第 ${currentPage} 页 / 共 ${totalPages} 页`;
+    speakChinese() {
+        const currentWord = this.currentPracticeSet[this.currentCardIndex];
+        if (!currentWord) return;
+        
+        // Try different TTS methods
+        if ('speechSynthesis' in window) {
+            const utterance = new SpeechSynthesisUtterance(currentWord.chinese);
+            utterance.lang = 'zh-CN';
+            utterance.rate = 0.7;
+            speechSynthesis.speak(utterance);
+        } else {
+            this.showToast('语音功能不可用 | Speech not available');
+        }
     }
     
-    // 渲染汉字按钮
-    if (pageChars.length > 0) {
-        charsContainer.innerHTML = pageChars.map(char => {
-            // 查找汉字的英文含义
-            let meaning = '';
-            for (const category in characterCategories) {
-                const charData = characterCategories[category].chars?.find(item => item.char === char);
-                if (charData && charData.meaning) {
-                    meaning = charData.meaning;
-                    break;
-                }
-            }
-            
-            return `
-                <button class="char-btn" onclick="loadCharacter('${char}')" title="${meaning}">
-                    ${char}
-                    ${meaning ? `<span class="char-meaning">${meaning}</span>` : ''}
-                </button>
-            `;
-        }).join('');
-    } else {
-        charsContainer.innerHTML = '<div style="text-align: center; padding: 20px;">没有找到符合条件的汉字 <span class="en-text">No matching characters found</span></div>';
+    markAsKnown() {
+        this.practiceStats.correct++;
+        this.practiceStats.total++;
+        this.addScore(10);
+        this.showAchievement('✅', '答对了！| Correct!');
+        this.nextCard();
     }
     
-    // 添加动画
-    Array.from(charsContainer.children).forEach((btn, index) => {
+    markAsUnknown() {
+        this.practiceStats.incorrect++;
+        this.practiceStats.total++;
+        
+        // Add word back to practice set for review
+        const currentWord = this.currentPracticeSet[this.currentCardIndex];
+        this.currentPracticeSet.push(currentWord);
+        
+        this.showAchievement('❌', '再试一次！| Try again!');
+        this.nextCard();
+    }
+    
+    nextCard() {
         setTimeout(() => {
-            btn.classList.add('fade-in');
-        }, index * 50);
-    });
-}
-
-// 加载指定汉字
-async function loadCharacter(character) {
-    try {
-        const response = await fetch(`/api/character/${character}`);
-        const data = await response.json();
-        updateContent(data);
-        
-        // 高亮当前选中的汉字
-        document.querySelectorAll('.char-btn').forEach(btn => {
-            btn.classList.toggle('active', btn.textContent.trim().startsWith(character));
-        });
-        
-        // 添加动画效果
-        animateCharacterDisplay();
-        
-        // 更新学习进度
-        updateLearningProgress(character);
-    } catch (error) {
-        console.error('Error:', error);
-        showToast('加载汉字失败 😢 (Failed to load character)');
+            this.currentCardIndex++;
+            this.showCurrentCard();
+        }, 1000);
     }
-}
-
-// 切换页面
-function changePage(direction) {
-    if (direction === 'prev' && currentPage > 1) {
-        currentPage--;
-    } else if (direction === 'next') {
-        const totalChars = currentCategory === 'all' ? 
-            availableCharacters.length : 
-            (characterCategories[currentCategory]?.chars?.length || 0);
-        const totalPages = Math.ceil(totalChars / itemsPerPage) || 1;
+    
+    updateProgress() {
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
         
-        if (currentPage < totalPages) {
-            currentPage++;
+        const progress = (this.currentCardIndex / this.currentPracticeSet.length) * 100;
+        progressFill.style.width = `${progress}%`;
+        progressText.textContent = `${this.currentCardIndex}/${this.currentPracticeSet.length}`;
+    }
+    
+    showResults() {
+        // Hide flashcard, show results
+        document.querySelector('.flashcard-container').classList.add('hidden');
+        document.getElementById('resultsSection').classList.remove('hidden');
+        
+        // Calculate final score
+        const accuracy = this.practiceStats.total > 0 ? 
+            Math.round((this.practiceStats.correct / this.practiceStats.total) * 100) : 0;
+        
+        // Update results display
+        document.getElementById('finalScore').textContent = accuracy;
+        document.getElementById('correctCount').textContent = this.practiceStats.correct;
+        document.getElementById('incorrectCount').textContent = this.practiceStats.incorrect;
+        
+        // Add bonus score based on accuracy
+        const bonusScore = Math.floor(accuracy / 10) * 5;
+        this.addScore(bonusScore);
+        
+        // Show achievement based on performance
+        if (accuracy >= 90) {
+            this.showAchievement('🏆', '完美表现！| Perfect performance!');
+        } else if (accuracy >= 70) {
+            this.showAchievement('🎉', '表现很好！| Great job!');
+        } else {
+            this.showAchievement('💪', '继续努力！| Keep trying!');
         }
     }
     
-    updateCharacterList();
+    retryPractice() {
+        // Reset and restart practice
+        document.getElementById('resultsSection').classList.add('hidden');
+        document.querySelector('.flashcard-container').classList.remove('hidden');
+        this.startPractice();
+    }
+    
+    backToWordList() {
+        document.getElementById('practiceSection').classList.add('hidden');
+        document.getElementById('addWordsSection').classList.remove('hidden');
+        
+        // Reset practice section state
+        document.getElementById('resultsSection').classList.add('hidden');
+        document.querySelector('.flashcard-container').classList.remove('hidden');
+    }
+    
+    addScore(points) {
+        this.totalScore += points;
+        localStorage.setItem('totalScore', this.totalScore.toString());
+        this.updateScoreDisplay();
+    }
+    
+    updateScoreDisplay() {
+        document.getElementById('totalScore').textContent = this.totalScore;
+        
+        // Update stars based on score
+        const stars = document.querySelectorAll('.star');
+        const filledStars = Math.min(Math.floor(this.totalScore / 100), stars.length);
+        
+        stars.forEach((star, index) => {
+            if (index < filledStars) {
+                star.classList.add('filled');
+            } else {
+                star.classList.remove('filled');
+            }
+        });
+    }
+    
+    mascotInteraction() {
+        const mascot = document.getElementById('mascot');
+        const mascots = ['🐼', '🐯', '🐶', '🐱', '🐰', '🦊', '🐸', '🐨'];
+        mascot.textContent = mascots[Math.floor(Math.random() * mascots.length)];
+        
+        const encouragements = [
+            '加油！你真棒！| Great job!',
+            '继续学习！| Keep learning!',
+            '你学得真快！| You learn so fast!',
+            '太厉害了！| Amazing!',
+            '你是最棒的！| You are the best!'
+        ];
+        
+        const message = encouragements[Math.floor(Math.random() * encouragements.length)];
+        this.showAchievement('🎉', message);
+    }
+    
+    showAchievement(icon, text) {
+        const popup = document.getElementById('achievementPopup');
+        const iconEl = document.getElementById('achievementIcon');
+        const textEl = document.getElementById('achievementText');
+        
+        iconEl.textContent = icon;
+        textEl.textContent = text;
+        
+        popup.classList.remove('hidden');
+        
+        // Auto-hide after 1.5 seconds (shorter)
+        const autoHideTimeout = setTimeout(() => {
+            popup.classList.add('hidden');
+        }, 1500);
+        
+        // Click to dismiss immediately
+        const clickHandler = () => {
+            popup.classList.add('hidden');
+            clearTimeout(autoHideTimeout);
+            popup.removeEventListener('click', clickHandler);
+        };
+        popup.addEventListener('click', clickHandler);
+    }
+    
+    showToast(message) {
+        const toast = document.getElementById('toast');
+        const toastText = document.getElementById('toastText');
+        
+        toastText.textContent = message;
+        toast.classList.remove('hidden');
+        
+        // Auto-hide after 2 seconds (shorter)
+        const autoHideTimeout = setTimeout(() => {
+            toast.classList.add('hidden');
+        }, 2000);
+        
+        // Click to dismiss immediately
+        const clickHandler = () => {
+            toast.classList.add('hidden');
+            clearTimeout(autoHideTimeout);
+            toast.removeEventListener('click', clickHandler);
+        };
+        toast.addEventListener('click', clickHandler);
+    }
+    
+    saveVocabulary() {
+        localStorage.setItem('chineseVocabulary', JSON.stringify(this.vocabulary));
+    }
 }
 
-// 初始化
+// Initialize app when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    // 加载分类数据
-    loadCategories();
-    
-    // 加载随机汉字
-    loadRandomCharacter();
-    
-    // 从本地存储加载学习进度
-    const savedProgress = localStorage.getItem('learningProgress');
-    if (savedProgress) {
-        try {
-            learningProgress = JSON.parse(savedProgress);
-            updateProgressBar();
-        } catch (e) {
-            console.error('Error parsing saved progress:', e);
-            learningProgress = {};
-        }
-    }
-    
-    // 添加搜索框事件监听
-    const searchInput = document.getElementById('charSearch');
-    if (searchInput) {
-        searchInput.addEventListener('input', () => {
-            currentPage = 1;
-            updateCharacterList();
-        });
-    }
-    
-    // 添加难度选择事件监听
-    const levelSelect = document.getElementById('levelSelect');
-    if (levelSelect) {
-        levelSelect.addEventListener('change', () => {
-            currentLevel = levelSelect.value;
-            currentPage = 1;
-            updateCharacterList();
-        });
-    }
-    
-    // 添加吉祥物交互
-    const mascot = document.getElementById('mascot');
-    if (mascot) {
-        mascot.addEventListener('click', () => {
-            mascot.textContent = ['🐼', '🐯', '🐶', '🐱', '🐰'][Math.floor(Math.random() * 5)];
-            mascot.classList.add('bounce');
-            setTimeout(() => mascot.classList.remove('bounce'), 1000);
-            
-            // 随机显示鼓励语
-            const encouragements = [
-                {zh: '加油！你真棒！', en: 'Great job!'},
-                {zh: '继续学习！', en: 'Keep learning!'},
-                {zh: '你学得真快！', en: 'You learn so fast!'},
-                {zh: '太厉害了！', en: 'Amazing!'},
-                {zh: '你是最棒的！', en: 'You are the best!'}
-            ];
-            const selected = encouragements[Math.floor(Math.random() * encouragements.length)];
-            showAchievement('🎉', `${selected.zh} (${selected.en})`);
-        });
-    }
-    
-    // 添加页面动画
-    document.querySelectorAll('section').forEach(section => {
-        section.classList.add('fade-in');
-    });
-    
-    // 添加输入框事件监听
-    const characterInput = document.getElementById('characterInput');
-    if (characterInput) {
-        characterInput.addEventListener('input', handleCharacterInput);
-    }
-    
-    // iOS设备提示
-    if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
-        console.log('iOS设备检测到，显示提示');
-        
-        // 显示提示，引导用户使用
-        showToast('点击声音按钮将显示翻译选项 (Tap sound button to show translation options)');
-    }
+    window.app = new VocabularyApp();
 });
 
-// 预加载常用汉字的音频
-function preloadCommonAudio() {
-    const commonChars = ['我', '你', '他', '她', '的', '是'];
+// Add some keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+    if (!window.app) return;
     
-    commonChars.forEach(char => {
-        const audio = new Audio();
-        const charCode = char.charCodeAt(0).toString(16);
-        audio.src = `/audio/${charCode}.mp3`;
-        
-        // 只预加载，不播放
-        audio.preload = 'auto';
-        
-        console.log(`预加载音频: ${char}`);
-    });
-}
-
-// 添加CSS样式
-function addStyles() {
-    const style = document.createElement('style');
-    style.textContent = `
-        .toast {
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%) translateY(100px);
-            background: rgba(0,0,0,0.7);
-            color: white;
-            padding: 10px 20px;
-            border-radius: 20px;
-            z-index: 1000;
-            transition: transform 0.3s ease;
-        }
-        
-        .toast.show {
-            transform: translateX(-50%) translateY(0);
-        }
-        
-        .subtitle {
-            font-size: 0.5em;
-            display: block;
-            color: var(--secondary);
-            text-shadow: none;
-        }
-        
-        .bounce {
-            animation: bounce 1s;
-        }
-        
-        .fade-in {
-            animation: fadeIn 0.5s;
-        }
-        
-        .writing-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 20px;
-        }
-        
-        #writingCanvas {
-            border: 3px solid var(--secondary);
-            border-radius: 10px;
-            background: #f9f9f9;
-        }
-        
-        .writing-controls {
-            display: flex;
-            gap: 20px;
-        }
-        
-        .game-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 20px;
-            padding: 20px;
-            background: #f9f9f9;
-            border-radius: var(--border-radius);
-        }
-        
-        .game-instruction {
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: var(--primary);
-        }
-        
-        .game-options {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            gap: 15px;
-            margin: 20px 0;
-        }
-        
-        .game-option {
-            padding: 15px 25px;
-            font-size: 1.3rem;
-            background: white;
-            border: 3px solid var(--secondary);
-            border-radius: 10px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-        
-        .game-option:hover {
-            background: var(--secondary);
-            color: white;
-            transform: translateY(-5px);
-        }
-        
-        .game-result {
-            font-size: 1.5rem;
-            font-weight: bold;
-            height: 40px;
-        }
-        
-        .char-meaning {
-            display: block;
-            font-size: 0.6em;
-            color: var(--light-text);
-            margin-top: 3px;
-            font-style: italic;
-        }
-        
-        .char-btn {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 5px;
-            height: auto;
-            min-height: 50px;
-        }
-    `;
-    document.head.appendChild(style);
-}
-
-// 添加样式
-addStyles();
+    // Only work when practice section is visible
+    const practiceSection = document.getElementById('practiceSection');
+    if (practiceSection.classList.contains('hidden')) return;
+    
+    switch(e.key) {
+        case ' ':
+        case 'Enter':
+            e.preventDefault();
+            if (!window.app.isFlipped) {
+                window.app.flipCard();
+            }
+            break;
+        case 'ArrowRight':
+        case 'y':
+        case 'Y':
+            e.preventDefault();
+            if (window.app.isFlipped) {
+                window.app.markAsKnown();
+            }
+            break;
+        case 'ArrowLeft':
+        case 'n':
+        case 'N':
+            e.preventDefault();
+            if (window.app.isFlipped) {
+                window.app.markAsUnknown();
+            }
+            break;
+        case 's':
+        case 'S':
+            e.preventDefault();
+            window.app.speakChinese();
+            break;
+    }
+}); 

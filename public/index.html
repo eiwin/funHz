@@ -1,496 +1,141 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black">
-    <title>趣学汉字 | Fun Chinese</title>
-    <link rel="stylesheet" href="/styles.css">
-    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600&display=swap" rel="stylesheet">
+    <title>汉字记忆卡 | Chinese Memory Cards</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <!-- 成就提示 -->
-    <div class="achievement" id="achievement">
-        <div class="achievement-icon">🏆</div>
-        <div class="achievement-text">你真棒！学会了新汉字！</div>
-    </div>
-    
-    <!-- 吉祥物 -->
-    <div class="mascot" id="mascot">🐼</div>
-    
-    <div class="container cartoon-border">
-        <header>
-            <h1>趣学汉字 <span class="subtitle">Fun Chinese</span></h1>
-            
-            <div class="progress-container">
-                <div class="progress-bar" id="progressBar" style="width: 30%;"></div>
-            </div>
-            
-            <div class="stars">
-                <div class="star filled">⭐</div>
-                <div class="star filled">⭐</div>
-                <div class="star">⭐</div>
-                <div class="star">⭐</div>
-                <div class="star">⭐</div>
-            </div>
-            
-            <div class="category-tabs">
-                <button class="tab-btn active" onclick="switchCategory('all')">全部 <span class="en-text">All</span></button>
-                <button class="tab-btn" onclick="switchCategory('basic')">基础字 <span class="en-text">Basic</span></button>
-                <button class="tab-btn" onclick="switchCategory('nature')">自然 <span class="en-text">Nature</span></button>
-                <button class="tab-btn" onclick="switchCategory('numbers')">数字 <span class="en-text">Numbers</span></button>
-                <button class="tab-btn" onclick="switchCategory('actions')">动作 <span class="en-text">Actions</span></button>
-                <button class="tab-btn" onclick="switchCategory('family')">家庭 <span class="en-text">Family</span></button>
-            </div>
-            
-            <div class="controls">
-                <div class="search-container">
-                    <input type="text" id="charSearch" placeholder="搜索汉字... / Search characters...">
+    <div class="app-container">
+        <!-- Header with mascot and title -->
+        <header class="app-header">
+            <div class="mascot" id="mascot">🐼</div>
+            <h1 class="app-title">汉字记忆卡<br><span class="subtitle">Chinese Memory Cards</span></h1>
+            <div class="score-display">
+                <div class="stars" id="starsContainer">
+                    <span class="star">⭐</span>
+                    <span class="star">⭐</span>
+                    <span class="star">⭐</span>
                 </div>
-                <div class="filter-container">
-                    <select id="levelSelect">
-                        <option value="all">所有难度 / All Levels</option>
-                        <option value="1">难度 1 / Level 1</option>
-                        <option value="2">难度 2 / Level 2</option>
-                        <option value="3">难度 3 / Level 3</option>
-                    </select>
-                </div>
+                <div class="score">得分: <span id="totalScore">0</span></div>
             </div>
         </header>
 
-        <div class="character-list">
-            <div class="available-chars"></div>
-            <div class="pagination">
-                <button onclick="changePage('prev')">上一页 <span class="en-text">Prev</span></button>
-                <span id="pageInfo">第 1 页 / 共 1 页</span>
-                <button onclick="changePage('next')">下一页 <span class="en-text">Next</span></button>
-            </div>
-        </div>
-
-        <main>
-            <section class="character-display">
-                <div class="main-character"></div>
-                <div class="english"></div>
+        <!-- Main content area -->
+        <main class="main-content">
+            <!-- Add words section -->
+            <section class="add-words-section" id="addWordsSection">
+                <h2>📝 添加新词汇 | Add New Words</h2>
+                <div class="input-container">
+                    <div class="input-group">
+                        <label for="chineseInput">汉字 | Chinese:</label>
+                        <input type="text" id="chineseInput" placeholder="例如: 苹果">
+                    </div>
+                    <div class="input-group">
+                        <label for="pinyinInput">拼音 | Pinyin: <span class="auto-label">(自动生成 | Auto-generated)</span></label>
+                        <input type="text" id="pinyinInput" placeholder="将自动生成 | Will be auto-generated" readonly>
+                        <button type="button" class="edit-pinyin-btn" id="editPinyinBtn">✏️ 编辑 | Edit</button>
+                    </div>
+                    <div class="input-group">
+                        <label for="englishInput">英文 | English:</label>
+                        <input type="text" id="englishInput" placeholder="例如: apple">
+                    </div>
+                    <button class="add-btn" id="addWordBtn">➕ 添加词汇 | Add Word</button>
+                </div>
                 
-                <div class="game-controls">
-                    <button class="game-btn" onclick="practiceWriting()">练习写字 <span class="en-text">Practice Writing</span></button>
-                    <button class="game-btn" onclick="playGame()">趣味游戏 <span class="en-text">Fun Game</span></button>
-                </div>
-            </section>
-
-            <section class="words-section">
-                <h2>词语 / Words</h2>
-                <div class="word-items-grid"></div>
-            </section>
-
-            <section class="sentences-section">
-                <h2>例句 / Example Sentences</h2>
-            </section>
-
-            <section class="fun-facts">
-                <h2>趣味解释 / Fun Facts</h2>
-                <div class="fun-fact-item">
-                    <div class="chinese"></div>
-                    <div class="english"></div>
-                </div>
-            </section>
-            
-            <!-- 写字练习区域 -->
-            <section class="writing-practice" id="writingPractice" style="display: none;">
-                <h2>写字练习 / Writing Practice</h2>
-                <div class="writing-container">
-                    <canvas id="writingCanvas" width="300" height="300"></canvas>
-                    <div class="score-display">
-                        <div class="score-label">分 / Score</div>
-                        <div class="score-value">0</div>
-                    </div>
-                    <div class="writing-controls">
-                        <button class="game-btn" onclick="clearCanvas()">清除 <span class="en-text">Clear</span></button>
-                        <button class="game-btn" onclick="checkWriting()">检查 <span class="en-text">Check</span></button>
+                <div class="word-list" id="wordList">
+                    <h3>📚 我的词汇库 | My Vocabulary</h3>
+                    <div class="words-grid" id="wordsGrid">
+                        <!-- Words will be displayed here -->
                     </div>
                 </div>
+                
+                <button class="start-practice-btn" id="startPracticeBtn">🎯 开始练习 | Start Practice</button>
             </section>
-            
-            <!-- 趣味游戏区域 -->
-            <section class="mini-game" id="miniGame" style="display: none;">
-                <h2>趣味游戏 / Fun Game</h2>
-                <div class="game-container">
-                    <div class="game-instruction">选择正确的拼音! <span class="en-text">Choose the correct pinyin!</span></div>
-                    <div class="game-options">
-                        <button class="game-option">选项1</button>
-                        <button class="game-option">选项2</button>
-                        <button class="game-option">选项3</button>
+
+            <!-- Practice section -->
+            <section class="practice-section hidden" id="practiceSection">
+                <div class="practice-header">
+                    <button class="back-btn" id="backBtn">⬅️ 返回 | Back</button>
+                    <div class="progress-info">
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progressFill"></div>
+                        </div>
+                        <span id="progressText">0/0</span>
                     </div>
-                    <div class="game-result"></div>
+                </div>
+
+                <!-- Flashcard -->
+                <div class="flashcard-container">
+                    <div class="flashcard" id="flashcard">
+                        <div class="card-front" id="cardFront">
+                            <div class="chinese-text" id="chineseText">汉字</div>
+                            <button class="flip-btn" id="flipBtn">🔄 翻转 | Flip</button>
+                            <button class="speak-btn" id="speakBtn">🔊 发音 | Speak</button>
+                        </div>
+                        <div class="card-back hidden" id="cardBack">
+                            <div class="pinyin-text" id="pinyinText">hàn zì</div>
+                            <div class="english-text" id="englishText">Chinese Character</div>
+                            <div class="action-buttons">
+                                <button class="know-btn" id="knowBtn">✅ 认识 | Know</button>
+                                <button class="dont-know-btn" id="dontKnowBtn">❌ 不认识 | Don't Know</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Multiple choice section -->
+                <div class="multiple-choice hidden" id="multipleChoice">
+                    <h3>选择正确答案 | Choose the correct answer</h3>
+                    <div class="question-text" id="questionText">这个词的意思是什么？</div>
+                    <div class="choices-container" id="choicesContainer">
+                        <!-- Choices will be generated here -->
+                    </div>
+                </div>
+
+                <!-- Results section -->
+                <div class="results-section hidden" id="resultsSection">
+                    <div class="results-content">
+                        <h2>🎉 练习完成！| Practice Complete!</h2>
+                        <div class="final-score">
+                            <div class="score-circle">
+                                <span id="finalScore">0</span>%
+                            </div>
+                        </div>
+                        <div class="results-stats">
+                            <div class="stat">
+                                <span class="stat-number" id="correctCount">0</span>
+                                <span class="stat-label">正确 | Correct</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-number" id="incorrectCount">0</span>
+                                <span class="stat-label">错误 | Incorrect</span>
+                            </div>
+                        </div>
+                        <div class="action-buttons">
+                            <button class="retry-btn" id="retryBtn">🔄 重新练习 | Retry</button>
+                            <button class="continue-btn" id="continueBtn">➡️ 继续添加 | Continue Adding</button>
+                        </div>
+                    </div>
                 </div>
             </section>
         </main>
-        
-        <footer>
-            <p>© 2025 趣学汉字 | Fun Chinese Learning</p>
-        </footer>
+
+        <!-- Achievement popup -->
+        <div class="achievement-popup hidden" id="achievementPopup">
+            <div class="achievement-content">
+                <div class="achievement-icon" id="achievementIcon">🎉</div>
+                <div class="achievement-text" id="achievementText">太棒了！</div>
+            </div>
+        </div>
+
+        <!-- Toast notifications -->
+        <div class="toast hidden" id="toast">
+            <span id="toastText">消息</span>
+        </div>
     </div>
-    
-    <script src="/script.js"></script>
-    
-    <script>
-        // 吉祥物交互
-        document.getElementById('mascot').addEventListener('click', function() {
-            this.textContent = ['🐼', '🐯', '🐶', '🐱', '🐰'][Math.floor(Math.random() * 5)];
-            this.classList.add('bounce');
-            setTimeout(() => this.classList.remove('bounce'), 1000);
-            
-            // 显示随机鼓励语
-            const encouragements = [
-                {zh: '加油！你真棒！', en: 'Great job!'},
-                {zh: '继续学习！', en: 'Keep learning!'},
-                {zh: '你学得真快！', en: 'You learn so fast!'},
-                {zh: '太厉害了！', en: 'Amazing!'},
-                {zh: '你是最棒的！', en: 'You are the best!'}
-            ];
-            const selected = encouragements[Math.floor(Math.random() * encouragements.length)];
-            showAchievement('🎉', `${selected.zh} (${selected.en})`);
-        });
-        
-        // 显示成就
-        function showAchievement(icon, text) {
-            const achievement = document.getElementById('achievement');
-            achievement.querySelector('.achievement-icon').textContent = icon;
-            achievement.querySelector('.achievement-text').textContent = text;
-            achievement.classList.add('show');
-            
-            setTimeout(() => {
-                achievement.classList.remove('show');
-            }, 3000);
-        }
-        
-        // 写字练习
-        function practiceWriting() {
-            const writingSection = document.getElementById('writingPractice');
-            const gameSection = document.getElementById('miniGame');
-            
-            writingSection.style.display = 'block';
-            gameSection.style.display = 'none';
-            
-            initCanvas();
-            
-            // 滚动到写字区域
-            writingSection.scrollIntoView({ behavior: 'smooth' });
-        }
-        
-        function initCanvas() {
-            const canvas = document.getElementById('writingCanvas');
-            const ctx = canvas.getContext('2d');
-            
-            // 清除画布
-            ctx.fillStyle = '#f9f9f9';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // 绘制网格
-            ctx.strokeStyle = '#ddd';
-            ctx.lineWidth = 1;
-            
-            // 横线
-            for (let i = 0; i <= canvas.height; i += 30) {
-                ctx.beginPath();
-                ctx.moveTo(0, i);
-                ctx.lineTo(canvas.width, i);
-                ctx.stroke();
-            }
-            
-            // 竖线
-            for (let i = 0; i <= canvas.width; i += 30) {
-                ctx.beginPath();
-                ctx.moveTo(i, 0);
-                ctx.lineTo(i, canvas.height);
-                ctx.stroke();
-            }
-            
-            // 添加当前汉字水印 - 只显示汉字，不显示拼音
-            const mainCharElement = document.querySelector('.main-character ruby');
-            if (mainCharElement) {
-                // 只获取汉字，不包括拼音
-                const currentChar = mainCharElement.textContent.trim().charAt(0);
-                
-                ctx.font = '150px sans-serif';
-                ctx.fillStyle = 'rgba(200, 200, 200, 0.2)';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(currentChar, canvas.width/2, canvas.height/2);
-            }
-            
-            // 设置绘图状态
-            let isDrawing = false;
-            let lastX = 0;
-            let lastY = 0;
-            
-            // 鼠标/触摸事件
-            canvas.addEventListener('mousedown', startDrawing);
-            canvas.addEventListener('mousemove', draw);
-            canvas.addEventListener('mouseup', stopDrawing);
-            canvas.addEventListener('mouseout', stopDrawing);
-            
-            // 触摸支持
-            canvas.addEventListener('touchstart', handleTouch);
-            canvas.addEventListener('touchmove', handleTouch);
-            canvas.addEventListener('touchend', stopDrawing);
-            
-            function startDrawing(e) {
-                isDrawing = true;
-                [lastX, lastY] = [e.offsetX, e.offsetY];
-            }
-            
-            function draw(e) {
-                if (!isDrawing) return;
-                
-                ctx.strokeStyle = '#333';
-                ctx.lineWidth = 8;
-                ctx.lineCap = 'round';
-                
-                ctx.beginPath();
-                ctx.moveTo(lastX, lastY);
-                ctx.lineTo(e.offsetX, e.offsetY);
-                ctx.stroke();
-                
-                [lastX, lastY] = [e.offsetX, e.offsetY];
-            }
-            
-            function stopDrawing() {
-                isDrawing = false;
-            }
-            
-            function handleTouch(e) {
-                e.preventDefault();
-                
-                const touch = e.touches[0];
-                const rect = canvas.getBoundingClientRect();
-                const offsetX = touch.clientX - rect.left;
-                const offsetY = touch.clientY - rect.top;
-                
-                const mouseEvent = new MouseEvent(
-                    e.type === 'touchstart' ? 'mousedown' : 'mousemove',
-                    {
-                        clientX: touch.clientX,
-                        clientY: touch.clientY
-                    }
-                );
-                
-                mouseEvent.offsetX = offsetX;
-                mouseEvent.offsetY = offsetY;
-                
-                if (e.type === 'touchstart') {
-                    startDrawing(mouseEvent);
-                } else {
-                    draw(mouseEvent);
-                }
-            }
-        }
-        
-        function clearCanvas() {
-            initCanvas();
-        }
-        
-        function checkWriting() {
-            const canvas = document.getElementById('writingCanvas');
-            const ctx = canvas.getContext('2d');
-            
-            // 获取画布数据
-            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const data = imageData.data;
-            
-            // 计算像素覆盖率
-            let pixelCount = 0;
-            for (let i = 0; i < data.length; i += 4) {
-                // 检查非白色像素 (RGB值不全为255或接近255)
-                if (data[i] < 240 || data[i+1] < 240 || data[i+2] < 240) {
-                    pixelCount++;
-                }
-            }
-            
-            // 计算覆盖率百分比
-            const totalPixels = canvas.width * canvas.height;
-            const coverage = pixelCount / totalPixels;
-            
-            // 计算分数 (0-100)
-            // 理想覆盖率在5%-15%之间，过多或过少都会扣分
-            let score = 0;
-            if (coverage < 0.01) {
-                // 几乎没写
-                score = 0;
-            } else if (coverage > 0.30) {
-                // 写太多了
-                score = Math.max(0, 100 - (coverage - 0.30) * 1000);
-            } else {
-                // 正常范围内，根据覆盖率给分
-                // 最佳覆盖率约为0.10 (10%)
-                const idealCoverage = 0.10;
-                const deviation = Math.abs(coverage - idealCoverage);
-                score = Math.max(0, 100 - deviation * 500);
-            }
-            
-            // 四舍五入到整数
-            score = Math.round(score);
-            
-            // 显示分数
-            const scoreElement = document.querySelector('.score-value') || document.createElement('div');
-            if (!document.querySelector('.score-value')) {
-                scoreElement.className = 'score-value';
-                document.querySelector('.writing-container').appendChild(scoreElement);
-            }
-            scoreElement.textContent = score;
-            scoreElement.classList.add('score-animation');
-            
-            // 根据分数显示不同的反馈
-            let feedbackMessage = '';
-            let icon = '';
-            
-            if (score >= 90) {
-                feedbackMessage = '写得太棒了！完美！ (Excellent writing! Perfect!)';
-                icon = '🏆';
-            } else if (score >= 70) {
-                feedbackMessage = '写得很好！继续练习！ (Great writing! Keep practicing!)';
-                icon = '👍';
-            } else if (score >= 50) {
-                feedbackMessage = '不错的尝试！再练习一下！ (Good try! Practice more!)';
-                icon = '👌';
-            } else {
-                feedbackMessage = '继续努力！慢慢来！ (Keep trying! Take it slow!)';
-                icon = '💪';
-            }
-            
-            // 显示成就
-            showAchievement(icon, feedbackMessage);
-            
-            // 增加进度
-            const progressBar = document.getElementById('progressBar');
-            const currentWidth = parseInt(progressBar.style.width);
-            const progressIncrease = Math.max(5, Math.floor(score / 10)); // 根据分数增加进度
-            progressBar.style.width = Math.min(currentWidth + progressIncrease, 100) + '%';
-            
-            // 如果进度达到100%，添加星星
-            if (currentWidth + progressIncrease >= 100) {
-                const stars = document.querySelectorAll('.star:not(.filled)');
-                if (stars.length > 0) {
-                    stars[0].classList.add('filled');
-                    showAchievement('🌟', '恭喜获得一颗星星！(Congratulations on earning a star!)');
-                }
-                progressBar.style.width = '0%';
-            }
-            
-            // 添加CSS样式
-            if (!document.getElementById('score-styles')) {
-                const style = document.createElement('style');
-                style.id = 'score-styles';
-                style.textContent = `
-                    .score-value {
-                        font-size: 3rem;
-                        font-weight: bold;
-                        color: var(--primary);
-                        text-align: center;
-                        margin: 10px 0;
-                        position: relative;
-                    }
-                    
-                    .score-animation {
-                        animation: pulse 1s ease-in-out;
-                    }
-                    
-                    @keyframes pulse {
-                        0% { transform: scale(1); }
-                        50% { transform: scale(1.5); }
-                        100% { transform: scale(1); }
-                    }
-                `;
-                document.head.appendChild(style);
-            }
-        }
-        
-        // 趣味游戏
-        function playGame() {
-            const writingSection = document.getElementById('writingPractice');
-            const gameSection = document.getElementById('miniGame');
-            
-            writingSection.style.display = 'none';
-            gameSection.style.display = 'block';
-            
-            // 设置游戏
-            setupPinyinGame();
-            
-            // 滚动到游戏区域
-            gameSection.scrollIntoView({ behavior: 'smooth' });
-        }
-        
-        function setupPinyinGame() {
-            const currentChar = document.querySelector('.main-character ruby').textContent.trim();
-            const correctPinyin = document.querySelector('.main-character rt').textContent.trim();
-            
-            // 生成错误选项
-            const pinyinOptions = [correctPinyin];
-            const allPinyins = ['shū', 'shú', 'shǔ', 'shù', 'hàn', 'zì', 'xué', 'xí'];
-            
-            while (pinyinOptions.length < 3) {
-                const randomPinyin = allPinyins[Math.floor(Math.random() * allPinyins.length)];
-                if (!pinyinOptions.includes(randomPinyin)) {
-                    pinyinOptions.push(randomPinyin);
-                }
-            }
-            
-            // 打乱选项顺序
-            pinyinOptions.sort(() => Math.random() - 0.5);
-            
-            // 更新游戏界面
-            document.querySelector('.game-instruction').innerHTML = `选择 "${currentChar}" 的正确拼音: <span class="en-text">Choose the correct pinyin for "${currentChar}":</span>`;
-            
-            const optionButtons = document.querySelectorAll('.game-option');
-            optionButtons.forEach((button, index) => {
-                button.textContent = pinyinOptions[index];
-                button.onclick = function() {
-                    checkAnswer(this.textContent, correctPinyin);
-                };
-            });
-            
-            document.querySelector('.game-result').textContent = '';
-        }
-        
-        function checkAnswer(selected, correct) {
-            const resultElement = document.querySelector('.game-result');
-            
-            if (selected === correct) {
-                resultElement.innerHTML = '正确! 👏 <span class="en-text">Correct!</span>';
-                resultElement.style.color = 'green';
-                
-                showAchievement('🎮', '游戏胜利！(Game won!)');
-                
-                // 增加进度
-                const progressBar = document.getElementById('progressBar');
-                const currentWidth = parseInt(progressBar.style.width);
-                progressBar.style.width = Math.min(currentWidth + 15, 100) + '%';
-                
-                // 如果进度达到100%，添加星星
-                if (currentWidth + 15 >= 100) {
-                    const stars = document.querySelectorAll('.star:not(.filled)');
-                    if (stars.length > 0) {
-                        stars[0].classList.add('filled');
-                        showAchievement('🌟', '恭喜获得一颗星星！(Congratulations on earning a star!)');
-                    }
-                    progressBar.style.width = '0%';
-                }
-                
-                // 3秒后设置新游戏
-                setTimeout(setupPinyinGame, 2000);
-            } else {
-                resultElement.innerHTML = `错误! 正确答案是: ${correct} <span class="en-text">Wrong! The correct answer is: ${correct}</span>`;
-                resultElement.style.color = 'red';
-            }
-        }
-        
-        // 页面加载动画
-        document.addEventListener('DOMContentLoaded', function() {
-            document.querySelectorAll('section').forEach(section => {
-                section.classList.add('fade-in');
-            });
-        });
-    </script>
+
+    <script src="script.js"></script>
 </body>
 </html> 
